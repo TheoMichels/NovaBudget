@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NovaBudget - Projections & Projets Futurs (Mockup)</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    /* NovaBudget Design System Fonts & Custom Effects */
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: linear-gradient(135deg, #F6FAF8 0%, #EDF7F2 35%, #F3F9F6 70%, #E8F5EE 100%);
+      color: #0C231B;
+      min-height: 100vh;
+    }
+    .glass-panel {
+      background: rgba(255, 255, 255, 0.88);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(230, 243, 238, 0.9);
+      box-shadow: 0 4px 20px -2px rgba(5, 150, 105, 0.05);
+    }
+    .glass-card {
+      background: rgba(255, 255, 255, 0.95);
+      border: 1px solid rgba(209, 232, 222, 0.6);
+      box-shadow: 0 2px 12px rgba(5, 150, 105, 0.04);
+    }
+    .glass-header {
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(230, 243, 238, 0.9);
+    }
+    /* Custom Range Slider */
+    input[type=range] {
+      accent-color: #059669;
+    }
+    .badge-inflow {
+      background-color: #DBEAFE;
+      color: #2563EB;
+      border: 1px solid rgba(37, 99, 235, 0.2);
+    }
+    .tab-active {
+      background-color: #059669;
+      color: #FFFFFF;
+      box-shadow: 0 2px 8px rgba(5, 150, 105, 0.25);
+    }
+    .tab-inactive {
+      background-color: rgba(15, 41, 34, 0.05);
+      color: #40594E;
+    }
+    .tab-inactive:hover {
+      background-color: rgba(15, 41, 34, 0.09);
+      color: #0C231B;
+    }
+  </style>
+</head>
+<body class="antialiased text-[#0C231B] pb-16">
+
+  <!-- TOP HEADER WITH APP BRAND & TAB SWITCHER -->
+  <header class="glass-header sticky top-0 z-30 px-6 py-3.5 flex flex-wrap items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#0F2922] to-[#059669] flex items-center justify-center text-white font-extrabold text-lg shadow-sm">
+        🌱
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="text-xl font-black text-[#0F2922] tracking-tight">NovaBudget</span>
+          <span class="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">v2.0 Preview</span>
+        </div>
+        <p class="text-xs font-semibold text-[#059669]">Épargne &amp; Trajectoire Patrimoniale</p>
+      </div>
+    </div>
+
+    <!-- MAIN APP TABS -->
+    <div class="flex items-center bg-emerald-950/5 p-1 rounded-2xl border border-emerald-900/10">
+      <button id="tab-btn-current" onclick="switchMainTab('current')" class="tab-inactive px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2">
+        <span>📊</span>
+        <span>Court Terme</span>
+        <span class="text-[10px] font-normal opacity-70">(Actuel)</span>
+      </button>
+      <button id="tab-btn-future" onclick="switchMainTab('future')" class="tab-active px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2">
+        <span>🚀</span>
+        <span>Projections &amp; Projets</span>
+        <span class="px-1.5 py-0.2 text-[9px] bg-emerald-100 text-emerald-900 font-extrabold rounded-md uppercase">Nouveau</span>
+      </button>
+    </div>
+
+    <!-- QUICK ACTIONS -->
+    <div class="flex items-center gap-2.5">
+      <button onclick="openModal('modal-oneoff')" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 transition shadow-sm flex items-center gap-1.5">
+        <span>⚡</span> + Rentrée d'argent
+      </button>
+      <button onclick="openModal('modal-project')" class="px-4 py-2 rounded-xl text-xs font-bold bg-[#059669] text-white hover:bg-emerald-700 transition shadow-sm flex items-center gap-1.5">
+        <span>🎯</span> + Projet Futur
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 pt-6">
+
+    <!-- TAB 1: RETRO-VUE COURT TERME (COLLAPSIBLE / PREVIEW) -->
+    <div id="view-current" class="hidden">
+      <div class="glass-panel rounded-3xl p-6 mb-6 border border-emerald-200/60">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h2 class="text-lg font-black text-[#0F2922]">Vue Court Terme (Dashboard existant)</h2>
+            <p class="text-xs text-[#40594E]">Vos 5 comptes d'épargne (50 750 €) et les dépenses prévues pour 2026 (13 400 €).</p>
+          </div>
+          <button onclick="switchMainTab('future')" class="text-xs font-bold text-emerald-700 underline">
+            Passer aux projections futures →
+          </button>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="p-4 bg-white rounded-2xl border border-emerald-100 shadow-sm">
+            <span class="text-xs font-bold text-gray-500 uppercase">Épargne Actuelle</span>
+            <div class="text-2xl font-black text-[#0F2922] mt-1">50 750 €</div>
+            <span class="text-xs text-emerald-600 font-semibold">5 comptes (Livrets, PEA, AV)</span>
+          </div>
+          <div class="p-4 bg-white rounded-2xl border border-amber-100 shadow-sm">
+            <span class="text-xs font-bold text-amber-700 uppercase">Dépenses 2026</span>
+            <div class="text-2xl font-black text-amber-800 mt-1">-13 400 €</div>
+            <span class="text-xs text-amber-600 font-semibold">4 dépenses actives (voyage, canapé, etc.)</span>
+          </div>
+          <div class="p-4 bg-white rounded-2xl border border-emerald-200 shadow-sm">
+            <span class="text-xs font-bold text-emerald-700 uppercase">Solde Résiduel</span>
+            <div class="text-2xl font-black text-emerald-700 mt-1">37 350 €</div>
+            <span class="text-xs text-gray-500 font-semibold">Coussin de 20 000 € préservé</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: PROJECTIONS & PROJETS FUTURS (THE STAR OF THE SHOW) -->
+    <div id="view-future" class="space-y-6">
+
+      <!-- BANNER / CONTEXT CONTROLLER -->
+      <div class="glass-panel rounded-3xl p-5 sm:p-6 border border-emerald-200/80">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 text-xs font-extrabold flex items-center gap-1">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                SIMULATEUR PROSPECTIF
+              </span>
+              <span class="text-xs text-[#738E83] font-medium">• Départ Octobre 2026 (50 750 €)</span>
+            </div>
+            <h1 class="text-xl sm:text-2xl font-black text-[#0F2922] tracking-tight mt-1.5">
+              Trajectoire Patrimoniale &amp; Projets Futurs
+            </h1>
+            <p class="text-xs sm:text-sm text-[#40594E] mt-0.5">
+              Anticipez vos grands projets (ex: apport voiture de 15k€), simulez vos versements mensuels, vos rentrées d'argent et vos intérêts composés.
+            </p>
+          </div>
+
+          <!-- TIME HORIZON SELECTOR -->
+          <div class="flex flex-wrap items-center gap-3">
+            <div class="bg-white/80 p-1.5 rounded-2xl border border-emerald-200/80 flex items-center shadow-sm">
+              <span class="text-[11px] font-bold text-[#738E83] px-2.5">Horizon :</span>
+              <button onclick="setHorizon(6)" id="h-btn-6" class="px-3 py-1.5 rounded-xl text-xs font-bold text-[#40594E] hover:bg-emerald-50 transition">6 mois</button>
+              <button onclick="setHorizon(12)" id="h-btn-12" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-[#059669] text-white shadow-sm transition">1 an (12m)</button>
+              <button onclick="setHorizon(24)" id="h-btn-24" class="px-3 py-1.5 rounded-xl text-xs font-bold text-[#40594E] hover:bg-emerald-50 transition">2 ans (24m)</button>
+              <button onclick="setHorizon(36)" id="h-btn-36" class="px-3 py-1.5 rounded-xl text-xs font-bold text-[#40594E] hover:bg-emerald-50 transition">3 ans (36m)</button>
+              <button onclick="setHorizon(60)" id="h-btn-60" class="px-3 py-1.5 rounded-xl text-xs font-bold text-[#40594E] hover:bg-emerald-50 transition">5 ans</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4 KPI SUMMARY CARDS -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3.5 mt-5">
+          <!-- Card 1: Épargne Finale Projetée -->
+          <div class="glass-card rounded-2xl p-4 border border-emerald-200/80">
+            <div class="flex items-center justify-between text-xs font-bold text-[#40594E] mb-1">
+              <span>ÉPARGNE PROJETÉE</span>
+              <span class="p-1 rounded-lg bg-emerald-50 text-emerald-700">🏁</span>
+            </div>
+            <div class="text-2xl sm:text-3xl font-black text-[#0F2922]" id="kpi-final-savings">53 850 €</div>
+            <div class="flex items-center gap-1.5 mt-1 text-xs">
+              <span class="font-bold text-emerald-600" id="kpi-net-diff">+3 100 € (+6,1%)</span>
+              <span class="text-[11px] text-gray-400">vs actuel</span>
+            </div>
+          </div>
+
+          <!-- Card 2: Effort d'Épargne Cumulé -->
+          <div class="glass-card rounded-2xl p-4 border border-blue-100">
+            <div class="flex items-center justify-between text-xs font-bold text-blue-900 mb-1">
+              <span>ÉPARGNE PROGRAMMÉE</span>
+              <span class="p-1 rounded-lg bg-blue-50 text-blue-700">📥</span>
+            </div>
+            <div class="text-2xl sm:text-3xl font-black text-blue-950" id="kpi-total-monthly">+9 600 €</div>
+            <div class="flex items-center gap-1 text-xs text-blue-700 mt-1 font-semibold">
+              <span id="kpi-monthly-rate">800 € / mois</span>
+              <span class="text-blue-400">• 12 mois</span>
+            </div>
+          </div>
+
+          <!-- Card 3: Intérêts Générés -->
+          <div class="glass-card rounded-2xl p-4 border border-emerald-100">
+            <div class="flex items-center justify-between text-xs font-bold text-emerald-900 mb-1">
+              <span>INTÉRÊTS COMPOSÉS</span>
+              <span class="p-1 rounded-lg bg-emerald-50 text-emerald-700">✨</span>
+            </div>
+            <div class="text-2xl sm:text-3xl font-black text-emerald-700" id="kpi-total-interest">+1 900 €</div>
+            <div class="flex items-center gap-1 text-xs text-emerald-600 mt-1 font-semibold">
+              <span>Rendement moy. 3,7%</span>
+              <span class="text-emerald-400">• Livrets &amp; PEA</span>
+            </div>
+          </div>
+
+          <!-- Card 4: Décaissements Projets Futurs -->
+          <div class="glass-card rounded-2xl p-4 border border-amber-200">
+            <div class="flex items-center justify-between text-xs font-bold text-amber-900 mb-1">
+              <span>APPORTS PROJETS DÉDUITS</span>
+              <span class="p-1 rounded-lg bg-amber-50 text-amber-700">🚗</span>
+            </div>
+            <div class="text-2xl sm:text-3xl font-black text-amber-900" id="kpi-total-projects">-15 000 €</div>
+            <div class="flex items-center gap-1 text-xs text-amber-700 mt-1 font-semibold">
+              <span id="kpi-projects-count">1 projet ciblé</span>
+              <span class="text-amber-500">• Voiture à M+12</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- SAFETY CUSHION STATUS BAR -->
+        <div class="mt-4 p-3.5 bg-emerald-950/5 rounded-2xl border border-emerald-900/10 flex flex-wrap items-center justify-between gap-3">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-800 text-sm font-bold">
+              🛡️
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-bold text-[#0F2922]">Matelas de Sécurité Intact</span>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800">20 000 € réservés</span>
+              </div>
+              <p class="text-xs text-[#40594E]">
+                Même après l'apport de 15k€ pour la voiture, votre épargne résiduelle reste de <strong class="text-emerald-700" id="cushion-surplus">33 850 €</strong> au-dessus de votre socle d'urgence.
+              </p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 text-xs font-bold text-emerald-700 bg-white px-3 py-1.5 rounded-xl border border-emerald-250 shadow-xs">
+            <span>Statut :</span>
+            <span class="text-emerald-600 font-extrabold">Excellente Santé Financière ✅</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- MAIN INTERACTIVE CHART & TIMELINE -->
+      <div class="glass-panel rounded-3xl p-5 sm:p-6 border border-emerald-200/80">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 class="text-lg font-black text-[#0F2922]">Trajectoire du Patrimoine d'Épargne</h2>
+              <span class="text-xs font-semibold px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-md">Courbe Dynamique</span>
+            </div>
+            <p class="text-xs text-[#40594E]">
+              Projection mois par mois combinant épargne mensuelle, rentrées exceptionnelles, intérêts et décaissements de projets.
+            </p>
+          </div>
+
+          <!-- CHART LEGEND -->
+          <div class="flex flex-wrap items-center gap-3.5 text-xs font-semibold text-[#40594E]">
+            <div class="flex items-center gap-1.5">
+              <span class="w-3.5 h-1.5 rounded-full bg-[#059669]"></span>
+              <span>Épargne totale</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="w-3.5 h-0 border-t-2 border-dashed border-red-500"></span>
+              <span>Coussin de sécurité (20k€)</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+              <span>Projet futur</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
+              <span>Rentrée d'argent</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- SVG CHART AREA -->
+        <div class="relative bg-white/70 rounded-2xl p-4 border border-emerald-100">
+          <div id="chart-container" class="w-full h-64">
+            <!-- Dynamic SVG injected via JavaScript -->
+          </div>
+
+          <!-- Tooltip preview hover -->
+          <div id="chart-tooltip" class="hidden absolute pointer-events-none bg-[#0F2922] text-white px-3 py-2 rounded-xl text-xs shadow-xl transition-all z-20">
+            <div class="font-bold text-emerald-400" id="tt-month">Mois M+6</div>
+            <div class="text-sm font-black" id="tt-balance">54 200 €</div>
+            <div class="text-[10px] text-gray-300" id="tt-details">+4 800€ épargne • +950€ intérêts</div>
+          </div>
+        </div>
+
+        <!-- MILESTONES SCROLLBAR / TIMELINE PILLS -->
+        <div class="mt-4 pt-3 border-t border-emerald-100">
+          <div class="flex items-center justify-between text-xs font-bold text-[#738E83] mb-2">
+            <span>ÉVÉNEMENTS JALONS DE LA PÉRIODE</span>
+            <span class="text-[11px] text-emerald-600 font-medium">Survolez pour voir l'impact</span>
+          </div>
+          <div class="flex items-center gap-2.5 overflow-x-auto pb-1" id="timeline-pills">
+            <!-- Dynamically populated timeline tags -->
+          </div>
+        </div>
+      </div>
+
+      <!-- DUAL CONTROL SECTIONS: LEVERS (LEFT) vs FUTURE PROJECTS (RIGHT) -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- COLUMN 1 (5 cols): GROWTH ENGINES (Monthly contribution + One-off inflows) -->
+        <div class="lg:col-span-5 space-y-6">
+
+          <!-- 1. MONTHLY SAVINGS ADJUSTER -->
+          <div class="glass-panel rounded-3xl p-5 border border-emerald-200/80">
+            <div class="flex items-center justify-between mb-3">
+              <div>
+                <h3 class="text-base font-extrabold text-[#0F2922]">1. Capacité d'Épargne Mensuelle</h3>
+                <p class="text-xs text-[#40594E]">Combien mettez-vous de côté chaque mois ?</p>
+              </div>
+              <span class="text-xs px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-xl font-bold">Récurrent</span>
+            </div>
+
+            <!-- Master Slider -->
+            <div class="bg-white/80 p-4 rounded-2xl border border-emerald-100 shadow-xs mb-4">
+              <div class="flex items-baseline justify-between mb-2">
+                <span class="text-xs font-bold text-[#738E83] uppercase">Effort d'Épargne Mensuel</span>
+                <span class="text-2xl font-black text-[#059669]" id="monthly-slider-val">800 €<span class="text-xs font-medium text-gray-500"> / mois</span></span>
+              </div>
+              <input type="range" id="monthly-slider" min="0" max="3000" step="50" value="800" oninput="updateMonthlySavings(this.value)" class="w-full h-2 bg-emerald-100 rounded-lg cursor-pointer">
+              <div class="flex justify-between text-[10px] text-gray-400 font-bold mt-1">
+                <span>0 €</span>
+                <span>800 €</span>
+                <span>1 500 €</span>
+                <span>3 000 €</span>
+              </div>
+            </div>
+
+            <!-- Compound Interest Rates Reminder -->
+            <div class="mt-4 p-3 bg-emerald-50/60 rounded-xl border border-emerald-100 text-[11px] text-[#40594E]">
+              <span class="font-bold text-emerald-800">💡 Rendement automatique :</span> Vos livrets génèrent <strong class="text-emerald-700">~158 € / mois</strong> d'intérêts passifs calculés d'après vos taux réels (Livret A 3%, LDDS 3%, PEA 7%, AV 4,5%).
+            </div>
+          </div>
+
+          <!-- 2. ONE-OFF INFLOWS (Rentrées exceptionnelles) -->
+          <div class="glass-panel rounded-3xl p-5 border border-emerald-200/80">
+            <div class="flex items-center justify-between mb-3">
+              <div>
+                <h3 class="text-base font-extrabold text-[#0F2922]">2. Rentrées Exceptionnelles</h3>
+                <p class="text-xs text-[#40594E]">Primes, remboursements, ventes ou rentrées prévues.</p>
+              </div>
+              <button onclick="openModal('modal-oneoff')" class="text-xs font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+                + Ajouter
+              </button>
+            </div>
+
+            <div class="space-y-2.5" id="inflows-list">
+              <!-- Dynamically populated or default inflows -->
+            </div>
+          </div>
+        </div>
+
+        <!-- COLUMN 2 (7 cols): FUTURE PROJECTS & MILESTONES (Ex: Achat Voiture 15k€) -->
+        <div class="lg:col-span-7 space-y-6">
+
+          <div class="glass-panel rounded-3xl p-5 sm:p-6 border border-emerald-200/80">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+              <div>
+                <div class="flex items-center gap-2">
+                  <h3 class="text-lg font-black text-[#0F2922]">3. Projets Futurs &amp; Grands Décaissements</h3>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800" id="projects-badge-count">2 projets</span>
+                </div>
+                <p class="text-xs text-[#40594E]">
+                  Programmez vos achats majeurs avec leur apport cible pour vérifier leur faisabilité sans fragiliser votre sécurité.
+                </p>
+              </div>
+              <button onclick="openModal('modal-project')" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-[#059669] text-white hover:bg-emerald-700 transition shadow-sm flex items-center gap-1.5 self-start">
+                <span>🎯</span> Nouveau projet
+              </button>
+            </div>
+
+            <!-- PROJECTS LIST -->
+            <div class="space-y-4" id="projects-list">
+              <!-- Populated by JS -->
+            </div>
+
+            <!-- SMART RECOMMENDATION / WHAT-IF SOLVER -->
+            <div class="mt-6 p-4 rounded-2xl bg-gradient-to-r from-emerald-900 to-[#0F2922] text-white shadow-md">
+              <div class="flex items-start gap-3">
+                <div class="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-lg">
+                  🧠
+                </div>
+                <div class="flex-1">
+                  <div class="flex items-center justify-between">
+                    <h4 class="text-sm font-bold text-emerald-300">Recommandation Intelligente NovaBudget</h4>
+                    <span class="text-[10px] bg-emerald-400/20 text-emerald-200 px-2 py-0.5 rounded-md font-semibold">Calcul automatique</span>
+                  </div>
+                  <p class="text-xs text-gray-200 mt-1 leading-relaxed" id="smart-advice-text">
+                    Pour financer l'<strong>Achat Voiture (15 000 € d'apport)</strong> dans 12 mois tout en conservant vos <strong>20 000 €</strong> de matelas, votre effort d'épargne minimum requis est de <strong>290 € / mois</strong>. Avec votre rythme actuel de <strong>800 € / mois</strong>, votre projet est <strong>sécurisé à 100%</strong> avec un excédent prévisionnel de +6 100 €.
+                  </p>
+                  
+                  <div class="mt-3 pt-2.5 border-t border-emerald-700/50 flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <span class="text-gray-300">💡 Conseil d'optimisation :</span>
+                    <span class="text-emerald-300 font-bold">Débloquez l'apport prioritairement depuis le Livret A (3%) pour laisser fructifier le PEA (7%).</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- COMPARATIF STRATÉGIQUE SCÉNARIOS -->
+          <div class="glass-panel rounded-3xl p-5 border border-emerald-200/80">
+            <h3 class="text-sm font-extrabold text-[#0F2922] mb-1">Simulateur de Scénarios Rapides</h3>
+            <p class="text-xs text-[#40594E] mb-3">Comparez l'impact de différents efforts d'épargne sur votre capital dans 12 mois :</p>
+            
+            <div class="grid grid-cols-3 gap-3">
+              <div onclick="applyScenario(400)" class="cursor-pointer p-3 rounded-2xl bg-white border border-gray-200 hover:border-emerald-400 transition text-center shadow-xs">
+                <span class="text-[10px] font-bold text-gray-500 uppercase">Rythme Prudent</span>
+                <div class="text-sm font-black text-gray-800 mt-0.5">400 € / m</div>
+                <div class="text-[11px] text-gray-600 mt-1" id="scen-prudent">Capital : 48 900 €</div>
+              </div>
+
+              <div onclick="applyScenario(800)" class="cursor-pointer p-3 rounded-2xl bg-emerald-50 border-2 border-[#059669] text-center shadow-xs">
+                <span class="text-[10px] font-extrabold text-emerald-700 uppercase">Actuel (Recommandé)</span>
+                <div class="text-sm font-black text-[#0F2922] mt-0.5">800 € / m</div>
+                <div class="text-[11px] text-emerald-800 font-bold mt-1" id="scen-current">Capital : 53 850 €</div>
+              </div>
+
+              <div onclick="applyScenario(1200)" class="cursor-pointer p-3 rounded-2xl bg-white border border-gray-200 hover:border-emerald-400 transition text-center shadow-xs">
+                <span class="text-[10px] font-bold text-gray-500 uppercase">Rythme Boost</span>
+                <div class="text-sm font-black text-gray-800 mt-0.5">1 200 € / m</div>
+                <div class="text-[11px] text-emerald-600 font-bold mt-1" id="scen-boost">Capital : 58 750 €</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- MODAL: AJOUTER UN PROJET FUTUR -->
+  <div id="modal-project" class="hidden fixed inset-0 z-50 bg-[#0F2922]/50 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl p-6 max-w-lg w-full border border-emerald-100 shadow-2xl animate-in fade-in">
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-2.5">
+          <span class="text-2xl">🎯</span>
+          <div>
+            <h3 class="text-lg font-black text-[#0F2922]">Nouveau Projet Futur</h3>
+            <p class="text-xs text-gray-500">Planifiez un achat et son apport</p>
+          </div>
+        </div>
+        <button onclick="closeModal('modal-project')" class="text-gray-400 hover:text-gray-600 text-lg font-bold">✕</button>
+      </div>
+
+      <div class="space-y-3.5">
+        <div>
+          <label class="block text-xs font-bold text-gray-700 mb-1">Nom du projet</label>
+          <input type="text" id="new-proj-title" placeholder="Ex: Achat Voiture, Achat Appartement, Mariage..." class="w-full text-xs font-medium border border-gray-300 rounded-xl px-3 py-2.5 focus:border-emerald-500 focus:outline-none">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-gray-700 mb-1">Montant d'apport (€)</label>
+            <input type="number" id="new-proj-amount" placeholder="15000" class="w-full text-xs font-bold border border-gray-300 rounded-xl px-3 py-2.5 focus:border-emerald-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-700 mb-1">Échéance cible</label>
+            <select id="new-proj-month" class="w-full text-xs font-bold border border-gray-300 rounded-xl px-3 py-2.5 focus:border-emerald-500 focus:outline-none">
+              <option value="6">Dans 6 mois (Avril 2027)</option>
+              <option value="12" selected>Dans 12 mois (Octobre 2027)</option>
+              <option value="18">Dans 18 mois (Avril 2028)</option>
+              <option value="24">Dans 24 mois (Octobre 2028)</option>
+              <option value="36">Dans 36 mois (Octobre 2029)</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-gray-700 mb-1">Catégorie</label>
+          <select id="new-proj-cat" class="w-full text-xs font-medium border border-gray-300 rounded-xl px-3 py-2.5 focus:border-emerald-500 focus:outline-none">
+            <option value="🚗 Véhicule">🚗 Véhicule</option>
+            <option value="🏡 Logement / RP">🏡 Logement / RP</option>
+            <option value="✈️ Voyage">✈️ Voyage</option>
+            <option value="💍 Événement">💍 Événement</option>
+            <option value="💼 Projet Pro">💼 Projet Pro</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2.5 mt-6 pt-4 border-t border-gray-100">
+        <button onclick="closeModal('modal-project')" class="px-4 py-2 text-xs font-bold text-gray-600 hover:bg-gray-100 rounded-xl">Annuler</button>
+        <button onclick="submitNewProject()" class="px-5 py-2 text-xs font-bold bg-[#059669] text-white hover:bg-emerald-700 rounded-xl shadow-sm">Créer le projet</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: AJOUTER UNE RENTRÉE EXCEPTIONNELLE -->
+  <div id="modal-oneoff" class="hidden fixed inset-0 z-50 bg-[#0F2922]/50 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl p-6 max-w-lg w-full border border-amber-100 shadow-2xl animate-in fade-in">
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-2.5">
+          <span class="text-2xl">⚡</span>
+          <div>
+            <h3 class="text-lg font-black text-[#0F2922]">Rentrée d'Argent Exceptionnelle</h3>
+            <p class="text-xs text-gray-500">Prime, vente, bonus, remboursement ou donation</p>
+          </div>
+        </div>
+        <button onclick="closeModal('modal-oneoff')" class="text-gray-400 hover:text-gray-600 text-lg font-bold">✕</button>
+      </div>
+
+      <div class="space-y-3.5">
+        <div>
+          <label class="block text-xs font-bold text-gray-700 mb-1">Motif de la rentrée</label>
+          <input type="text" id="new-inflow-title" placeholder="Ex: Prime de fin d'année, Vente moto, Remboursement..." class="w-full text-xs font-medium border border-gray-300 rounded-xl px-3 py-2.5 focus:border-amber-500 focus:outline-none">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-gray-700 mb-1">Montant net (€)</label>
+            <input type="number" id="new-inflow-amount" placeholder="3000" class="w-full text-xs font-bold border border-gray-300 rounded-xl px-3 py-2.5 focus:border-amber-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-700 mb-1">Date prévue</label>
+            <select id="new-inflow-month" class="w-full text-xs font-bold border border-gray-300 rounded-xl px-3 py-2.5 focus:border-amber-500 focus:outline-none">
+              <option value="2">Dans 2 mois (Décembre 2026)</option>
+              <option value="5">Dans 5 mois (Mars 2027)</option>
+              <option value="8">Dans 8 mois (Juin 2027)</option>
+              <option value="12">Dans 12 mois (Octobre 2027)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2.5 mt-6 pt-4 border-t border-gray-100">
+        <button onclick="closeModal('modal-oneoff')" class="px-4 py-2 text-xs font-bold text-gray-600 hover:bg-gray-100 rounded-xl">Annuler</button>
+        <button onclick="submitNewInflow()" class="px-5 py-2 text-xs font-bold bg-amber-600 text-white hover:bg-amber-700 rounded-xl shadow-sm">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CLIENT-SIDE SIMULATION LOGIC -->
+  <script>
+    // State management for mockup
+    const state = {
+      initialSavings: 50750, // Initial balance from NovaBudget
+      safetyCushion: 20000,
+      horizonMonths: 12, // Default 1 year
+      monthlySavings: 800,
+      weightedAnnualRate: 0.037, // ~3.7% weighted interest rate across Livret A, LDDS, PEA, AV
+      inflows: [
+        { id: "in_1", title: "Prime Annuelle Entreprise", amount: 3500, atMonth: 2, active: true },
+        { id: "in_2", title: "Vente Ancien Scooter", amount: 1800, atMonth: 6, active: true }
+      ],
+      projects: [
+        {
+          id: "proj_1",
+          title: "Achat Voiture (Apport personnel)",
+          amount: 15000,
+          atMonth: 12,
+          category: "🚗 Véhicule",
+          active: true,
+          notes: "Apport pour achat véhicule familial d'occasion récente"
+        },
+        {
+          id: "proj_2",
+          title: "Voyage Roadtrip Japon",
+          amount: 4500,
+          atMonth: 18,
+          category: "✈️ Voyage",
+          active: false, // Inactif par défaut pour l'horizon 12m
+          notes: "Billets et hébergement 3 semaines"
+        }
+      ]
+    };
+
+    function formatEuro(num) {
+      return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(num);
+    }
+
+    function switchMainTab(tab) {
+      const currentView = document.getElementById('view-current');
+      const futureView = document.getElementById('view-future');
+      const btnCurrent = document.getElementById('tab-btn-current');
+      const btnFuture = document.getElementById('tab-btn-future');
+
+      if (tab === 'current') {
+        currentView.classList.remove('hidden');
+        futureView.classList.add('hidden');
+        btnCurrent.className = 'tab-active px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2';
+        btnFuture.className = 'tab-inactive px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2';
+      } else {
+        currentView.classList.add('hidden');
+        futureView.classList.remove('hidden');
+        btnCurrent.className = 'tab-inactive px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2';
+        btnFuture.className = 'tab-active px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2';
+      }
+    }
+
+    function setHorizon(months) {
+      state.horizonMonths = months;
+      [6, 12, 24, 36, 60].forEach(m => {
+        const btn = document.getElementById('h-btn-' + m);
+        if (m === months) {
+          btn.className = 'px-3 py-1.5 rounded-xl text-xs font-bold bg-[#059669] text-white shadow-sm transition';
+        } else {
+          btn.className = 'px-3 py-1.5 rounded-xl text-xs font-bold text-[#40594E] hover:bg-emerald-50 transition';
+        }
+      });
+      runForecast();
+    }
+
+    function updateMonthlySavings(val) {
+      const num = parseInt(val) || 0;
+      state.monthlySavings = num;
+      document.getElementById('monthly-slider-val').innerHTML = `${formatEuro(num)}<span class="text-xs font-medium text-gray-500"> / mois</span>`;
+      runForecast();
+    }
+
+    function applyScenario(monthly) {
+      updateMonthlySavings(monthly);
+      document.getElementById('monthly-slider').value = monthly;
+    }
+
+    function toggleProject(id) {
+      const p = state.projects.find(x => x.id === id);
+      if (p) {
+        p.active = !p.active;
+        runForecast();
+      }
+    }
+
+    function toggleInflow(id) {
+      const inf = state.inflows.find(x => x.id === id);
+      if (inf) {
+        inf.active = !inf.active;
+        runForecast();
+      }
+    }
+
+    function openModal(id) {
+      document.getElementById(id).classList.remove('hidden');
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.add('hidden');
+    }
+
+    function submitNewProject() {
+      const title = document.getElementById('new-proj-title').value || "Nouveau Projet";
+      const amount = parseFloat(document.getElementById('new-proj-amount').value) || 5000;
+      const atMonth = parseInt(document.getElementById('new-proj-month').value) || 12;
+      const category = document.getElementById('new-proj-cat').value;
+
+      state.projects.push({
+        id: "proj_" + Date.now(),
+        title,
+        amount,
+        atMonth,
+        category,
+        active: true,
+        notes: "Ajouté via le simulateur"
+      });
+
+      closeModal('modal-project');
+      runForecast();
+    }
+
+    function submitNewInflow() {
+      const title = document.getElementById('new-inflow-title').value || "Rentrée";
+      const amount = parseFloat(document.getElementById('new-inflow-amount').value) || 2000;
+      const atMonth = parseInt(document.getElementById('new-inflow-month').value) || 3;
+
+      state.inflows.push({
+        id: "in_" + Date.now(),
+        title,
+        amount,
+        atMonth,
+        active: true
+      });
+
+      closeModal('modal-oneoff');
+      runForecast();
+    }
+
+    // MAIN SIMULATION COMPUTATION ENGINE
+    function runForecast() {
+      const H = state.horizonMonths;
+      const monthlyRate = state.weightedAnnualRate / 12;
+
+      let currentCapital = state.initialSavings;
+      let totalMonthlySaved = 0;
+      let totalInterest = 0;
+      let totalProjectsOut = 0;
+      let totalInflowsIn = 0;
+
+      const monthlyData = [];
+      monthlyData.push({
+        month: 0,
+        label: "Départ (Oct 26)",
+        capital: currentCapital,
+        interestMonth: 0,
+        monthlySaved: 0,
+        events: []
+      });
+
+      for (let m = 1; m <= H; m++) {
+        // 1. Monthly contribution
+        currentCapital += state.monthlySavings;
+        totalMonthlySaved += state.monthlySavings;
+
+        // 2. Inflows this month
+        const activeInflowsThisMonth = state.inflows.filter(i => i.active && i.atMonth === m);
+        let inflowAmount = 0;
+        const events = [];
+        activeInflowsThisMonth.forEach(i => {
+          currentCapital += i.amount;
+          totalInflowsIn += i.amount;
+          inflowAmount += i.amount;
+          events.push({ type: 'inflow', text: `+${formatEuro(i.amount)} (${i.title})` });
+        });
+
+        // 3. Projects deductions this month
+        const activeProjectsThisMonth = state.projects.filter(p => p.active && p.atMonth === m);
+        let projectDeduction = 0;
+        activeProjectsThisMonth.forEach(p => {
+          currentCapital -= p.amount;
+          totalProjectsOut += p.amount;
+          projectDeduction += p.amount;
+          events.push({ type: 'project', text: `-${formatEuro(p.amount)} (${p.title})` });
+        });
+
+        // 4. Monthly compound interest on average/closing capital (capital non-dépensé)
+        const earnedInterest = Math.max(0, currentCapital * monthlyRate);
+        currentCapital += earnedInterest;
+        totalInterest += earnedInterest;
+
+        // Date label generator
+        const d = new Date(2026, 9 + m, 1);
+        const monthName = d.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' });
+
+        monthlyData.push({
+          month: m,
+          label: monthName,
+          capital: Math.round(currentCapital),
+          interestMonth: Math.round(earnedInterest),
+          events
+        });
+      }
+
+      // Update KPI Cards
+      document.getElementById('kpi-final-savings').innerText = formatEuro(currentCapital);
+      const diff = currentCapital - state.initialSavings;
+      const diffPct = ((diff / state.initialSavings) * 100).toFixed(1);
+      const sign = diff >= 0 ? "+" : "";
+      document.getElementById('kpi-net-diff').innerText = `${sign}${formatEuro(diff)} (${sign}${diffPct}%)`;
+      document.getElementById('kpi-net-diff').className = diff >= 0 ? "font-bold text-emerald-600" : "font-bold text-red-600";
+
+      document.getElementById('kpi-total-monthly').innerText = `+${formatEuro(totalMonthlySaved)}`;
+      document.getElementById('kpi-monthly-rate').innerText = `${formatEuro(state.monthlySavings)} / mois`;
+
+      document.getElementById('kpi-total-interest').innerText = `+${formatEuro(totalInterest)}`;
+
+      document.getElementById('kpi-total-projects').innerText = totalProjectsOut > 0 ? `-${formatEuro(totalProjectsOut)}` : "0 €";
+      const activeProjCount = state.projects.filter(p => p.active && p.atMonth <= H).length;
+      document.getElementById('kpi-projects-count').innerText = `${activeProjCount} projet${activeProjCount > 1 ? 's' : ''} sur ${H}m`;
+
+      // Cushion surplus
+      const surplus = currentCapital - state.safetyCushion;
+      document.getElementById('cushion-surplus').innerText = formatEuro(surplus);
+
+      // Render Dynamic SVG Chart
+      renderChart(monthlyData);
+
+      // Render Inflows List
+      renderInflows();
+
+      // Render Projects List
+      renderProjects(monthlyData);
+
+      // Render Timeline Pills
+      renderTimelinePills(monthlyData);
+    }
+
+    function renderChart(data) {
+      const container = document.getElementById('chart-container');
+      const w = container.clientWidth || 800;
+      const h = container.clientHeight || 250;
+
+      const padding = { top: 20, right: 30, bottom: 40, left: 60 };
+      const chartW = w - padding.left - padding.right;
+      const chartH = h - padding.top - padding.bottom;
+
+      const capitals = data.map(d => d.capital);
+      const maxVal = Math.max(state.initialSavings * 1.35, Math.max(...capitals) * 1.08);
+      const minVal = Math.min(state.safetyCushion * 0.8, Math.min(...capitals) * 0.95);
+
+      const getY = (val) => padding.top + chartH - ((val - minVal) / (maxVal - minVal)) * chartH;
+      const getX = (idx) => padding.left + (idx / (data.length - 1)) * chartW;
+
+      // Build path
+      let dPath = "";
+      let dArea = `M ${getX(0)} ${padding.top + chartH} `;
+      data.forEach((pt, i) => {
+        const x = getX(i);
+        const y = getY(pt.capital);
+        if (i === 0) {
+          dPath += `M ${x} ${y} `;
+          dArea += `L ${x} ${y} `;
+        } else {
+          // Smooth bezier curve
+          const prevX = getX(i - 1);
+          const prevY = getY(data[i - 1].capital);
+          const cpX1 = prevX + (x - prevX) / 2;
+          const cpX2 = prevX + (x - prevX) / 2;
+          dPath += `C ${cpX1} ${prevY}, ${cpX2} ${y}, ${x} ${y} `;
+          dArea += `C ${cpX1} ${prevY}, ${cpX2} ${y}, ${x} ${y} `;
+        }
+      });
+      dArea += `L ${getX(data.length - 1)} ${padding.top + chartH} Z`;
+
+      const cushionY = getY(state.safetyCushion);
+
+      // Grid lines & labels
+      let gridSvg = "";
+      const steps = 4;
+      for (let s = 0; s <= steps; s++) {
+        const val = minVal + (s / steps) * (maxVal - minVal);
+        const y = getY(val);
+        gridSvg += `
+          <line x1="${padding.left}" y1="${y}" x2="${w - padding.right}" y2="${y}" stroke="rgba(209, 232, 222, 0.5)" stroke-dasharray="3,3" />
+          <text x="${padding.left - 10}" y="${y + 4}" font-size="10" font-weight="600" fill="#738E83" text-anchor="end">${Math.round(val / 1000)}k€</text>
+        `;
+      }
+
+      // X Axis dates
+      let xAxisSvg = "";
+      const stepInterval = data.length > 20 ? Math.ceil(data.length / 8) : Math.ceil(data.length / 6);
+      data.forEach((d, i) => {
+        if (i === 0 || i === data.length - 1 || i % stepInterval === 0) {
+          const x = getX(i);
+          xAxisSvg += `
+            <text x="${x}" y="${h - 12}" font-size="10" font-weight="700" fill="#40594E" text-anchor="middle">${d.label}</text>
+          `;
+        }
+      });
+
+      // Event dots
+      let dotsSvg = "";
+      data.forEach((pt, i) => {
+        const x = getX(i);
+        const y = getY(pt.capital);
+
+        // Standard point
+        if (i === 0 || i === data.length - 1) {
+          dotsSvg += `<circle cx="${x}" cy="${y}" r="4" fill="#059669" stroke="#FFFFFF" stroke-width="2" />`;
+        }
+
+        // Special events
+        if (pt.events.length > 0) {
+          const hasProject = pt.events.some(e => e.type === 'project');
+          const hasInflow = pt.events.some(e => e.type === 'inflow');
+          const color = hasProject ? '#F59E0B' : '#3B82F6';
+          const icon = hasProject ? '🚗' : '⚡';
+
+          dotsSvg += `
+            <g class="cursor-pointer" onclick="alert('${pt.label} : ${pt.events.map(e => e.text).join(' • ')}')">
+              <circle cx="${x}" cy="${y}" r="7" fill="${color}" stroke="#FFFFFF" stroke-width="2.5" />
+              <text x="${x}" y="${y - 12}" font-size="11" text-anchor="middle">${icon}</text>
+            </g>
+          `;
+        }
+      });
+
+      container.innerHTML = `
+        <svg width="100%" height="100%" viewBox="0 0 ${w} ${h}">
+          <defs>
+            <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#10B981" stop-opacity="0.32" />
+              <stop offset="100%" stop-color="#10B981" stop-opacity="0.0" />
+            </linearGradient>
+          </defs>
+          
+          ${gridSvg}
+          ${xAxisSvg}
+
+          <!-- Safety Cushion Line -->
+          <line x1="${padding.left}" y1="${cushionY}" x2="${w - padding.right}" y2="${cushionY}" stroke="#EF4444" stroke-width="1.8" stroke-dasharray="4,4" />
+          <text x="${w - padding.right}" y="${cushionY - 5}" font-size="10" font-weight="800" fill="#DC2626" text-anchor="end">Seuil Sécurité (20k€)</text>
+
+          <!-- Capital Area & Line -->
+          <path d="${dArea}" fill="url(#areaGradient)" />
+          <path d="${dPath}" fill="none" stroke="#059669" stroke-width="3.5" stroke-linecap="round" />
+
+          ${dotsSvg}
+        </svg>
+      `;
+    }
+
+    function renderInflows() {
+      const container = document.getElementById('inflows-list');
+      container.innerHTML = state.inflows.map(inf => `
+        <div class="flex items-center justify-between p-3 rounded-2xl ${inf.active ? 'bg-white/80 border-amber-200' : 'bg-gray-100/60 border-gray-200 opacity-60'} border transition">
+          <div class="flex items-center gap-3">
+            <button onclick="toggleInflow('${inf.id}')" class="w-7 h-7 rounded-lg ${inf.active ? 'bg-amber-100 text-amber-800' : 'bg-gray-200 text-gray-400'} flex items-center justify-center text-xs font-bold">
+              ${inf.active ? '✓' : ''}
+            </button>
+            <div>
+              <div class="text-xs font-bold text-[#0F2922]">${inf.title}</div>
+              <div class="flex items-center gap-1.5 text-[10px] text-gray-500">
+                <span>Dans ${inf.atMonth} mois</span>
+                <span>•</span>
+                <span class="badge-inflow px-1.5 py-0.2 rounded font-semibold">Rentrée</span>
+              </div>
+            </div>
+          </div>
+          <div class="text-right">
+            <span class="text-xs font-black text-amber-700">+${formatEuro(inf.amount)}</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderProjects(monthlyData) {
+      const container = document.getElementById('projects-list');
+      const H = state.horizonMonths;
+
+      container.innerHTML = state.projects.map(p => {
+        const inScope = p.atMonth <= H;
+        const monthInfo = monthlyData.find(m => m.month === p.atMonth);
+        const residualAtTime = monthInfo ? monthInfo.capital : 0;
+        const isSafe = residualAtTime >= state.safetyCushion;
+
+        return `
+          <div class="p-4 rounded-2xl ${p.active ? 'bg-white border-emerald-200/90' : 'bg-gray-50 border-gray-200 opacity-60'} border shadow-xs transition">
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex items-start gap-3">
+                <div class="w-10 h-10 rounded-2xl ${isSafe ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-amber-50 text-amber-800 border-amber-200'} border flex items-center justify-center text-lg">
+                  ${p.category.split(' ')[0]}
+                </div>
+                <div>
+                  <div class="flex items-center gap-2">
+                    <h4 class="text-sm font-black text-[#0F2922]">${p.title}</h4>
+                    ${!inScope ? '<span class="text-[10px] font-bold px-2 py-0.5 bg-gray-100 text-gray-500 rounded-md">Hors horizon (' + p.atMonth + 'm)</span>' : ''}
+                  </div>
+                  <p class="text-xs text-gray-500 mt-0.5">${p.notes || ''}</p>
+                </div>
+              </div>
+
+              <!-- Toggle Active Switch -->
+              <div class="flex items-center gap-3">
+                <div class="text-right">
+                  <div class="text-sm font-black text-amber-900">-${formatEuro(p.amount)}</div>
+                  <div class="text-[10px] font-bold text-gray-400">Échéance M+${p.atMonth}</div>
+                </div>
+                <button onclick="toggleProject('${p.id}')" class="px-2.5 py-1 text-xs font-bold rounded-lg ${p.active ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-600'}">
+                  ${p.active ? 'Inclus' : 'Désactivé'}
+                </button>
+              </div>
+            </div>
+
+            <!-- Health gauge for this project -->
+            ${p.active && inScope ? `
+              <div class="mt-3 pt-3 border-t border-gray-100 flex flex-wrap items-center justify-between gap-2 text-xs">
+                <div class="flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full ${isSafe ? 'bg-emerald-500' : 'bg-amber-500'}"></span>
+                  <span class="text-gray-600">Solde après apport à M+${p.atMonth} : <strong class="${isSafe ? 'text-emerald-700' : 'text-amber-700'}">${formatEuro(residualAtTime)}</strong></span>
+                </div>
+                <span class="text-[11px] font-extrabold ${isSafe ? 'text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md' : 'text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md'}">
+                  ${isSafe ? '✅ Faisabilité Validée (Coussin intact)' : '⚠️ Attention au seuil de sécurité'}
+                </span>
+              </div>
+            ` : ''}
+          </div>
+        `;
+      }).join('');
+
+      document.getElementById('projects-badge-count').innerText = `${state.projects.length} projet${state.projects.length > 1 ? 's' : ''}`;
+    }
+
+    function renderTimelinePills(data) {
+      const container = document.getElementById('timeline-pills');
+      const eventsList = [];
+
+      data.forEach(d => {
+        if (d.events.length > 0) {
+          d.events.forEach(ev => {
+            eventsList.push({ monthLabel: d.label, ...ev });
+          });
+        }
+      });
+
+      if (eventsList.length === 0) {
+        container.innerHTML = `<span class="text-xs text-gray-400 italic">Aucun événement planifié sur cet horizon.</span>`;
+        return;
+      }
+
+      container.innerHTML = eventsList.map(ev => `
+        <div class="shrink-0 px-3 py-1.5 rounded-xl ${ev.type === 'project' ? 'bg-amber-50 border-amber-200 text-amber-900' : 'bg-blue-50 border-blue-200 text-blue-900'} border text-xs font-bold flex items-center gap-2">
+          <span class="text-[10px] uppercase font-black opacity-75">${ev.monthLabel}</span>
+          <span>•</span>
+          <span>${ev.text}</span>
+        </div>
+      `).join('');
+    }
+
+    // Window resize handler for SVG
+    window.addEventListener('resize', () => {
+      runForecast();
+    });
+
+    // Initial run
+    runForecast();
+  </script>
+</body>
+</html>
