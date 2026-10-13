@@ -124,6 +124,11 @@ export async function getCurrentUser(): Promise<User | null> {
   }
 
   try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (sessionData?.session?.user) {
+      return sessionData.session.user;
+    }
+
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) {
       return null;

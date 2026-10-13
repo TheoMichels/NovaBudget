@@ -109,7 +109,8 @@ export function AddProjectModal({
                 style={styles.textInput}
                 placeholder="Ex: 15000"
                 placeholderTextColor={colors.textMuted}
-                keyboardType="numeric"
+                keyboardType="decimal-pad"
+                inputMode="decimal"
                 value={amount}
                 onChangeText={setAmount}
               />

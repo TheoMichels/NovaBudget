@@ -98,7 +98,11 @@ export async function addSavings(
     throw new Error("Supabase n'est pas configuré");
   }
 
-  const uid = userId ?? (await getCurrentUser())?.id;
+  const sessionRes = await supabase.auth.getSession();
+  const uid =
+    userId ??
+    sessionRes.data?.session?.user?.id ??
+    (await getCurrentUser())?.id;
   if (!uid) {
     throw new Error("Utilisateur non authentifié");
   }
@@ -111,8 +115,8 @@ export async function addSavings(
     user_id: uid,
     name: data.name,
     category: data.category,
-    amount: data.amount,
-    rate: data.rate,
+    amount: Number(data.amount) || 0,
+    rate: Number(data.rate) || 0,
     bank: data.bank ?? null,
     notes: data.notes ?? null,
   };
@@ -146,8 +150,10 @@ export async function updateSavings(
   if (updates.name !== undefined) updatePayload.name = updates.name;
   if (updates.category !== undefined)
     updatePayload.category = updates.category;
-  if (updates.amount !== undefined) updatePayload.amount = updates.amount;
-  if (updates.rate !== undefined) updatePayload.rate = updates.rate;
+  if (updates.amount !== undefined)
+    updatePayload.amount = Number(updates.amount) || 0;
+  if (updates.rate !== undefined)
+    updatePayload.rate = Number(updates.rate) || 0;
   if (updates.bank !== undefined) updatePayload.bank = updates.bank ?? null;
   if (updates.notes !== undefined)
     updatePayload.notes = updates.notes ?? null;
