@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getCurrentUser } from "../services/authService";
 import { supabase } from "../services/supabaseClient";
 import {
@@ -14,6 +15,10 @@ import {
   MonthlyContributionConfig,
   OneOffInflow,
 } from "../types/projection";
+
+const STORAGE_KEY_PROJECTS = "@novabudget_future_projects_v3";
+const STORAGE_KEY_INFLOWS = "@novabudget_inflows_v3";
+const STORAGE_KEY_CONTRIBUTION = "@novabudget_monthly_contribution_v3";
 
 const VALID_CATEGORIES: readonly ExpenseCategory[] = [
   "voyage",
@@ -55,15 +60,67 @@ function mapInflowRow(row: InflowRow): OneOffInflow {
   };
 }
 
+function isTableMissingError(error: any): boolean {
+  if (!error) return false;
+  const msg = typeof error === "string" ? error : error?.message || "";
+  const code = error?.code || "";
+  return (
+    code === "PGRST205" ||
+    msg.includes("could not find the table") ||
+    msg.includes("schema cache")
+  );
+}
+
+// ---------------- LOCAL STORAGE HELPERS ----------------
+
+async function getLocalProjects(): Promise<FutureProject[]> {
+  try {
+    const json = await AsyncStorage.getItem(STORAGE_KEY_PROJECTS);
+    if (!json) return [];
+    const parsed = JSON.parse(json);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+async function saveLocalProjects(projects: FutureProject[]): Promise<void> {
+  try {
+    await AsyncStorage.setItem(STORAGE_KEY_PROJECTS, JSON.stringify(projects));
+  } catch (error) {
+    console.error("Failed to save future projects to local storage:", error);
+  }
+}
+
+async function getLocalInflows(): Promise<OneOffInflow[]> {
+  try {
+    const json = await AsyncStorage.getItem(STORAGE_KEY_INFLOWS);
+    if (!json) return [];
+    const parsed = JSON.parse(json);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+async function saveLocalInflows(inflows: OneOffInflow[]): Promise<void> {
+  try {
+    await AsyncStorage.setItem(STORAGE_KEY_INFLOWS, JSON.stringify(inflows));
+  } catch (error) {
+    console.error("Failed to save inflows to local storage:", error);
+  }
+}
+
 // ---------------- PROJECTS ----------------
 
 export async function getFutureProjects(
   userId?: string
 ): Promise<FutureProject[]> {
+  const localProjects = await getLocalProjects();
   try {
-    if (!supabase) return [];
+    if (!supabase) return localProjects;
     const uid = userId ?? (await getCurrentUser())?.id;
-    if (!uid) return [];
+    if (!uid) return localProjects;
 
     const { data, error } = await supabase
       .from("future_projects")
@@ -72,18 +129,26 @@ export async function getFutureProjects(
       .order("target_date", { ascending: true });
 
     if (error) {
-      console.error("Failed to load future projects from Supabase:", error);
-      return [];
+      if (isTableMissingError(error)) {
+        console.warn(
+          "Table Supabase future_projects non trouvée (fallback local actif)"
+        );
+      } else {
+        console.error("Failed to load future projects from Supabase:", error);
+      }
+      return localProjects;
     }
 
     if (!data || data.length === 0) {
-      return [];
+      return localProjects;
     }
 
-    return data.map(mapFutureProjectRow);
+    const projects = data.map(mapFutureProjectRow);
+    await saveLocalProjects(projects);
+    return projects;
   } catch (error) {
-    console.error("Failed to load future projects from Supabase:", error);
-    return [];
+    console.warn("Failed to load future projects from Supabase, fallback local:", error);
+    return localProjects;
   }
 }
 
@@ -91,6 +156,8 @@ export async function saveFutureProjects(
   projects: FutureProject[],
   userId?: string
 ): Promise<void> {
+  await saveLocalProjects(projects);
+
   if (!supabase || projects.length === 0) return;
   const uid = userId ?? (await getCurrentUser())?.id;
   if (!uid) return;
@@ -107,13 +174,24 @@ export async function saveFutureProjects(
     updated_at: new Date().toISOString(),
   }));
 
-  const { error } = await supabase
-    .from("future_projects")
-    .upsert(rows, { onConflict: "id" });
+  try {
+    const { error } = await supabase
+      .from("future_projects")
+      .upsert(rows, { onConflict: "id" });
 
-  if (error) {
-    console.error("Failed to save future projects to Supabase:", error);
-    throw error;
+    if (error) {
+      if (isTableMissingError(error)) {
+        console.warn(
+          "Table Supabase future_projects non configurée, sauvegarde locale active."
+        );
+        return;
+      }
+      console.error("Failed to save future projects to Supabase:", error);
+      throw error;
+    }
+  } catch (err) {
+    if (isTableMissingError(err)) return;
+    throw err;
   }
 }
 
@@ -121,121 +199,183 @@ export async function addFutureProject(
   data: Omit<FutureProject, "id" | "updatedAt">,
   userId?: string
 ): Promise<FutureProject> {
-  if (!supabase) {
-    throw new Error("Supabase n'est pas configuré");
-  }
-
-  const uid = userId ?? (await getCurrentUser())?.id;
-  if (!uid) {
-    throw new Error("Utilisateur non authentifié");
-  }
-
   const newId =
     "proj_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6);
 
-  const rowInsert: FutureProjectInsert = {
+  const localProject: FutureProject = {
+    ...data,
     id: newId,
-    user_id: uid,
-    title: data.title,
-    amount: data.amount,
-    target_date: data.targetDate,
-    category: data.category,
-    is_active: data.isActive,
-    notes: data.notes ?? null,
+    amount: Number(data.amount) || 0,
+    updatedAt: new Date().toISOString(),
   };
 
-  const { data: inserted, error } = await supabase
-    .from("future_projects")
-    .insert(rowInsert)
-    .select()
-    .single();
+  const currentLocal = await getLocalProjects();
+  const updatedLocal = [...currentLocal, localProject];
+  await saveLocalProjects(updatedLocal);
 
-  if (error || !inserted) {
-    console.error("Failed to insert future project into Supabase:", error);
-    throw new Error(
-      error?.message || "Erreur lors de l'ajout du projet futur"
-    );
+  if (supabase) {
+    try {
+      const uid = userId ?? (await getCurrentUser())?.id;
+      if (uid) {
+        const rowInsert: FutureProjectInsert = {
+          id: newId,
+          user_id: uid,
+          title: data.title,
+          amount: data.amount,
+          target_date: data.targetDate,
+          category: data.category,
+          is_active: data.isActive,
+          notes: data.notes ?? null,
+        };
+
+        const { data: inserted, error } = await supabase
+          .from("future_projects")
+          .insert(rowInsert)
+          .select()
+          .single();
+
+        if (error) {
+          if (isTableMissingError(error)) {
+            console.warn(
+              "Table Supabase future_projects non trouvée. Projet sauvegardé localement."
+            );
+            return localProject;
+          }
+          console.error("Failed to insert future project into Supabase:", error);
+          throw new Error(
+            error?.message || "Erreur lors de l'ajout du projet futur"
+          );
+        }
+
+        if (inserted) {
+          const mapped = mapFutureProjectRow(inserted);
+          await saveLocalProjects([
+            ...currentLocal.filter((p) => p.id !== newId),
+            mapped,
+          ]);
+          return mapped;
+        }
+      }
+    } catch (err) {
+      if (isTableMissingError(err)) {
+        return localProject;
+      }
+      throw err;
+    }
   }
 
-  return mapFutureProjectRow(inserted);
+  return localProject;
 }
 
 export async function updateFutureProject(
   id: string,
   updates: Partial<Omit<FutureProject, "id">>
 ): Promise<FutureProject | null> {
-  if (!supabase) return null;
+  const currentLocal = await getLocalProjects();
+  const idx = currentLocal.findIndex((p) => p.id === id);
+  let updatedLocal: FutureProject | null = null;
 
-  const updatePayload: Partial<FutureProjectUpdate> = {
-    updated_at: new Date().toISOString(),
-  };
-
-  if (updates.title !== undefined) updatePayload.title = updates.title;
-  if (updates.amount !== undefined) updatePayload.amount = updates.amount;
-  if (updates.targetDate !== undefined)
-    updatePayload.target_date = updates.targetDate;
-  if (updates.category !== undefined)
-    updatePayload.category = updates.category;
-  if (updates.isActive !== undefined)
-    updatePayload.is_active = updates.isActive;
-  if (updates.notes !== undefined)
-    updatePayload.notes = updates.notes ?? null;
-
-  const { data, error } = await supabase
-    .from("future_projects")
-    .update(updatePayload)
-    .eq("id", id)
-    .select()
-    .single();
-
-  if (error || !data) {
-    console.error("Failed to update future project in Supabase:", error);
-    return null;
+  if (idx !== -1) {
+    updatedLocal = {
+      ...currentLocal[idx],
+      ...updates,
+      amount:
+        updates.amount !== undefined
+          ? Number(updates.amount) || 0
+          : currentLocal[idx].amount,
+      updatedAt: new Date().toISOString(),
+    };
+    currentLocal[idx] = updatedLocal;
+    await saveLocalProjects(currentLocal);
   }
 
-  return mapFutureProjectRow(data);
+  if (supabase) {
+    try {
+      const updatePayload: Partial<FutureProjectUpdate> = {
+        updated_at: new Date().toISOString(),
+      };
+
+      if (updates.title !== undefined) updatePayload.title = updates.title;
+      if (updates.amount !== undefined) updatePayload.amount = updates.amount;
+      if (updates.targetDate !== undefined)
+        updatePayload.target_date = updates.targetDate;
+      if (updates.category !== undefined)
+        updatePayload.category = updates.category;
+      if (updates.isActive !== undefined)
+        updatePayload.is_active = updates.isActive;
+      if (updates.notes !== undefined)
+        updatePayload.notes = updates.notes ?? null;
+
+      const { data, error } = await supabase
+        .from("future_projects")
+        .update(updatePayload)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) {
+        if (!isTableMissingError(error)) {
+          console.error("Failed to update future project in Supabase:", error);
+        }
+        return updatedLocal;
+      }
+
+      if (data) {
+        const mapped = mapFutureProjectRow(data);
+        if (idx !== -1) {
+          currentLocal[idx] = mapped;
+          await saveLocalProjects(currentLocal);
+        }
+        return mapped;
+      }
+    } catch {
+      return updatedLocal;
+    }
+  }
+
+  return updatedLocal;
 }
 
 export async function toggleFutureProjectActive(
   id: string
 ): Promise<FutureProject | null> {
-  if (!supabase) return null;
-
-  const { data: current, error: getError } = await supabase
-    .from("future_projects")
-    .select("is_active")
-    .eq("id", id)
-    .single();
-
-  if (getError || !current) {
-    console.error("Failed to fetch future project for toggle:", getError);
-    return null;
-  }
-
-  return updateFutureProject(id, { isActive: !current.is_active });
+  const currentLocal = await getLocalProjects();
+  const project = currentLocal.find((p) => p.id === id);
+  if (!project) return null;
+  return updateFutureProject(id, { isActive: !project.isActive });
 }
 
 export async function deleteFutureProject(id: string): Promise<void> {
+  const currentLocal = await getLocalProjects();
+  await saveLocalProjects(currentLocal.filter((p) => p.id !== id));
+
   if (!supabase) return;
 
-  const { error } = await supabase
-    .from("future_projects")
-    .delete()
-    .eq("id", id);
+  try {
+    const { error } = await supabase
+      .from("future_projects")
+      .delete()
+      .eq("id", id);
 
-  if (error) {
-    console.error("Failed to delete future project from Supabase:", error);
-    throw error;
+    if (error && !isTableMissingError(error)) {
+      console.error("Failed to delete future project from Supabase:", error);
+      throw error;
+    }
+  } catch (err) {
+    if (!isTableMissingError(err)) {
+      throw err;
+    }
   }
 }
 
 // ---------------- INFLOWS ----------------
 
 export async function getInflows(userId?: string): Promise<OneOffInflow[]> {
+  const localInflows = await getLocalInflows();
   try {
-    if (!supabase) return [];
+    if (!supabase) return localInflows;
     const uid = userId ?? (await getCurrentUser())?.id;
-    if (!uid) return [];
+    if (!uid) return localInflows;
 
     const { data, error } = await supabase
       .from("inflows")
@@ -244,18 +384,26 @@ export async function getInflows(userId?: string): Promise<OneOffInflow[]> {
       .order("target_date", { ascending: true });
 
     if (error) {
-      console.error("Failed to load inflows from Supabase:", error);
-      return [];
+      if (isTableMissingError(error)) {
+        console.warn(
+          "Table Supabase inflows non trouvée (fallback local actif)"
+        );
+      } else {
+        console.error("Failed to load inflows from Supabase:", error);
+      }
+      return localInflows;
     }
 
     if (!data || data.length === 0) {
-      return [];
+      return localInflows;
     }
 
-    return data.map(mapInflowRow);
+    const mapped = data.map(mapInflowRow);
+    await saveLocalInflows(mapped);
+    return mapped;
   } catch (error) {
-    console.error("Failed to load inflows from Supabase:", error);
-    return [];
+    console.warn("Failed to load inflows from Supabase, fallback local:", error);
+    return localInflows;
   }
 }
 
@@ -263,6 +411,8 @@ export async function saveInflows(
   inflows: OneOffInflow[],
   userId?: string
 ): Promise<void> {
+  await saveLocalInflows(inflows);
+
   if (!supabase || inflows.length === 0) return;
   const uid = userId ?? (await getCurrentUser())?.id;
   if (!uid) return;
@@ -278,13 +428,24 @@ export async function saveInflows(
     updated_at: new Date().toISOString(),
   }));
 
-  const { error } = await supabase
-    .from("inflows")
-    .upsert(rows, { onConflict: "id" });
+  try {
+    const { error } = await supabase
+      .from("inflows")
+      .upsert(rows, { onConflict: "id" });
 
-  if (error) {
-    console.error("Failed to save inflows to Supabase:", error);
-    throw error;
+    if (error) {
+      if (isTableMissingError(error)) {
+        console.warn(
+          "Table Supabase inflows non configurée, sauvegarde locale active."
+        );
+        return;
+      }
+      console.error("Failed to save inflows to Supabase:", error);
+      throw error;
+    }
+  } catch (err) {
+    if (isTableMissingError(err)) return;
+    throw err;
   }
 }
 
@@ -292,103 +453,164 @@ export async function addInflow(
   data: Omit<OneOffInflow, "id" | "updatedAt">,
   userId?: string
 ): Promise<OneOffInflow> {
-  if (!supabase) {
-    throw new Error("Supabase n'est pas configuré");
-  }
-
-  const uid = userId ?? (await getCurrentUser())?.id;
-  if (!uid) {
-    throw new Error("Utilisateur non authentifié");
-  }
-
   const newId =
     "inf_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6);
 
-  const rowInsert: InflowInsert = {
+  const localInflow: OneOffInflow = {
+    ...data,
     id: newId,
-    user_id: uid,
-    title: data.title,
-    amount: data.amount,
-    target_date: data.targetDate,
-    is_active: data.isActive,
-    notes: data.notes ?? null,
+    amount: Number(data.amount) || 0,
+    updatedAt: new Date().toISOString(),
   };
 
-  const { data: inserted, error } = await supabase
-    .from("inflows")
-    .insert(rowInsert)
-    .select()
-    .single();
+  const currentLocal = await getLocalInflows();
+  const updatedLocal = [...currentLocal, localInflow];
+  await saveLocalInflows(updatedLocal);
 
-  if (error || !inserted) {
-    console.error("Failed to insert inflow into Supabase:", error);
-    throw new Error(error?.message || "Erreur lors de l'ajout de la rentrée");
+  if (supabase) {
+    try {
+      const uid = userId ?? (await getCurrentUser())?.id;
+      if (uid) {
+        const rowInsert: InflowInsert = {
+          id: newId,
+          user_id: uid,
+          title: data.title,
+          amount: data.amount,
+          target_date: data.targetDate,
+          is_active: data.isActive,
+          notes: data.notes ?? null,
+        };
+
+        const { data: inserted, error } = await supabase
+          .from("inflows")
+          .insert(rowInsert)
+          .select()
+          .single();
+
+        if (error) {
+          if (isTableMissingError(error)) {
+            console.warn(
+              "Table Supabase inflows non trouvée. Rentrée sauvegardée localement."
+            );
+            return localInflow;
+          }
+          console.error("Failed to insert inflow into Supabase:", error);
+          throw new Error(error?.message || "Erreur lors de l'ajout de la rentrée");
+        }
+
+        if (inserted) {
+          const mapped = mapInflowRow(inserted);
+          await saveLocalInflows([
+            ...currentLocal.filter((i) => i.id !== newId),
+            mapped,
+          ]);
+          return mapped;
+        }
+      }
+    } catch (err) {
+      if (isTableMissingError(err)) {
+        return localInflow;
+      }
+      throw err;
+    }
   }
 
-  return mapInflowRow(inserted);
+  return localInflow;
 }
 
 export async function updateInflow(
   id: string,
   updates: Partial<Omit<OneOffInflow, "id">>
 ): Promise<OneOffInflow | null> {
-  if (!supabase) return null;
+  const currentLocal = await getLocalInflows();
+  const idx = currentLocal.findIndex((i) => i.id === id);
+  let updatedLocal: OneOffInflow | null = null;
 
-  const updatePayload: Partial<InflowUpdate> = {
-    updated_at: new Date().toISOString(),
-  };
-
-  if (updates.title !== undefined) updatePayload.title = updates.title;
-  if (updates.amount !== undefined) updatePayload.amount = updates.amount;
-  if (updates.targetDate !== undefined)
-    updatePayload.target_date = updates.targetDate;
-  if (updates.isActive !== undefined)
-    updatePayload.is_active = updates.isActive;
-  if (updates.notes !== undefined)
-    updatePayload.notes = updates.notes ?? null;
-
-  const { data, error } = await supabase
-    .from("inflows")
-    .update(updatePayload)
-    .eq("id", id)
-    .select()
-    .single();
-
-  if (error || !data) {
-    console.error("Failed to update inflow in Supabase:", error);
-    return null;
+  if (idx !== -1) {
+    updatedLocal = {
+      ...currentLocal[idx],
+      ...updates,
+      amount:
+        updates.amount !== undefined
+          ? Number(updates.amount) || 0
+          : currentLocal[idx].amount,
+      updatedAt: new Date().toISOString(),
+    };
+    currentLocal[idx] = updatedLocal;
+    await saveLocalInflows(currentLocal);
   }
 
-  return mapInflowRow(data);
+  if (supabase) {
+    try {
+      const updatePayload: Partial<InflowUpdate> = {
+        updated_at: new Date().toISOString(),
+      };
+
+      if (updates.title !== undefined) updatePayload.title = updates.title;
+      if (updates.amount !== undefined) updatePayload.amount = updates.amount;
+      if (updates.targetDate !== undefined)
+        updatePayload.target_date = updates.targetDate;
+      if (updates.isActive !== undefined)
+        updatePayload.is_active = updates.isActive;
+      if (updates.notes !== undefined)
+        updatePayload.notes = updates.notes ?? null;
+
+      const { data, error } = await supabase
+        .from("inflows")
+        .update(updatePayload)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) {
+        if (!isTableMissingError(error)) {
+          console.error("Failed to update inflow in Supabase:", error);
+        }
+        return updatedLocal;
+      }
+
+      if (data) {
+        const mapped = mapInflowRow(data);
+        if (idx !== -1) {
+          currentLocal[idx] = mapped;
+          await saveLocalInflows(currentLocal);
+        }
+        return mapped;
+      }
+    } catch {
+      return updatedLocal;
+    }
+  }
+
+  return updatedLocal;
 }
 
 export async function toggleInflowActive(
   id: string
 ): Promise<OneOffInflow | null> {
-  if (!supabase) return null;
-
-  const { data: current, error: getError } = await supabase
-    .from("inflows")
-    .select("is_active")
-    .eq("id", id)
-    .single();
-
-  if (getError || !current) {
-    console.error("Failed to fetch inflow for toggle:", getError);
-    return null;
-  }
-
-  return updateInflow(id, { isActive: !current.is_active });
+  const currentLocal = await getLocalInflows();
+  const inflow = currentLocal.find((i) => i.id === id);
+  if (!inflow) return null;
+  return updateInflow(id, { isActive: !inflow.isActive });
 }
 
 export async function deleteInflow(id: string): Promise<void> {
+  const currentLocal = await getLocalInflows();
+  await saveLocalInflows(currentLocal.filter((i) => i.id !== id));
+
   if (!supabase) return;
 
-  const { error } = await supabase.from("inflows").delete().eq("id", id);
+  try {
+    const { error } = await supabase.from("inflows").delete().eq("id", id);
 
-  if (error) {
-    console.error("Failed to delete inflow from Supabase:", error);
-    throw error;
+    if (error && !isTableMissingError(error)) {
+      console.error("Failed to delete inflow from Supabase:", error);
+      throw error;
+    }
+  } catch (err) {
+    if (!isTableMissingError(err)) {
+      throw err;
+    }
   }
 }
 
@@ -400,9 +622,18 @@ export async function getMonthlyContribution(
   const DEFAULT_CONFIG: MonthlyContributionConfig = { monthlyTotal: 800 };
 
   try {
-    if (!supabase) return DEFAULT_CONFIG;
+    const json = await AsyncStorage.getItem(STORAGE_KEY_CONTRIBUTION);
+    let localConfig = DEFAULT_CONFIG;
+    if (json) {
+      const parsed = JSON.parse(json);
+      if (typeof parsed?.monthlyTotal === "number") {
+        localConfig = parsed;
+      }
+    }
+
+    if (!supabase) return localConfig;
     const uid = userId ?? (await getCurrentUser())?.id;
-    if (!uid) return DEFAULT_CONFIG;
+    if (!uid) return localConfig;
 
     const { data, error } = await supabase
       .from("user_settings")
@@ -411,23 +642,34 @@ export async function getMonthlyContribution(
       .maybeSingle();
 
     if (error) {
-      console.error(
-        "Failed to load monthly contribution from Supabase:",
-        error
-      );
-      return DEFAULT_CONFIG;
+      if (isTableMissingError(error)) {
+        console.warn(
+          "Table user_settings non trouvée (fallback local contribution actif)"
+        );
+      } else {
+        console.error(
+          "Failed to load monthly contribution from Supabase:",
+          error
+        );
+      }
+      return localConfig;
     }
 
     if (!data || data.monthly_savings == null) {
-      return DEFAULT_CONFIG;
+      return localConfig;
     }
 
-    return {
+    const config = {
       monthlyTotal: Number(data.monthly_savings),
     };
+    await AsyncStorage.setItem(
+      STORAGE_KEY_CONTRIBUTION,
+      JSON.stringify(config)
+    );
+    return config;
   } catch (error) {
-    console.error(
-      "Failed to load monthly contribution from Supabase:",
+    console.warn(
+      "Failed to load monthly contribution, fallback local:",
       error
     );
     return DEFAULT_CONFIG;
@@ -438,24 +680,42 @@ export async function saveMonthlyContribution(
   config: MonthlyContributionConfig,
   userId?: string
 ): Promise<void> {
+  try {
+    await AsyncStorage.setItem(
+      STORAGE_KEY_CONTRIBUTION,
+      JSON.stringify(config)
+    );
+  } catch (e) {
+    console.error("Failed to save monthly contribution locally:", e);
+  }
+
   if (!supabase) return;
   const uid = userId ?? (await getCurrentUser())?.id;
   if (!uid) return;
 
-  const { error } = await supabase.from("user_settings").upsert(
-    {
-      user_id: uid,
-      monthly_savings: config.monthlyTotal,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "user_id" }
-  );
-
-  if (error) {
-    console.error(
-      "Failed to save monthly contribution to Supabase:",
-      error
+  try {
+    const { error } = await supabase.from("user_settings").upsert(
+      {
+        user_id: uid,
+        monthly_savings: config.monthlyTotal,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id" }
     );
-    throw error;
+
+    if (error) {
+      if (isTableMissingError(error)) {
+        console.warn("Table user_settings absente, contribution sauvegardée localement.");
+        return;
+      }
+      console.error(
+        "Failed to save monthly contribution to Supabase:",
+        error
+      );
+      throw error;
+    }
+  } catch (err) {
+    if (isTableMissingError(err)) return;
+    throw err;
   }
 }

@@ -1,7 +1,10 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getCurrentUser } from "../services/authService";
 import { supabase } from "../services/supabaseClient";
 import { ExpenseInsert, ExpenseRow, ExpenseUpdate } from "../types/database";
 import { Expense, ExpenseCategory } from "../types/expense";
+
+const STORAGE_KEY = "@novabudget_expenses_v3";
 
 const VALID_CATEGORIES: readonly ExpenseCategory[] = [
   "voyage",
@@ -31,11 +34,42 @@ function mapExpenseRowToExpense(row: ExpenseRow): Expense {
   };
 }
 
-export async function getExpenses(userId?: string): Promise<Expense[]> {
+async function getLocalExpenses(): Promise<Expense[]> {
   try {
-    if (!supabase) return [];
+    const json = await AsyncStorage.getItem(STORAGE_KEY);
+    if (!json) return [];
+    const parsed = JSON.parse(json);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+async function saveLocalExpenses(expenses: Expense[]): Promise<void> {
+  try {
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(expenses));
+  } catch (error) {
+    console.error("Failed to save expenses to local storage:", error);
+  }
+}
+
+function isTableMissingError(error: any): boolean {
+  if (!error) return false;
+  const msg = typeof error === "string" ? error : error?.message || "";
+  const code = error?.code || "";
+  return (
+    code === "PGRST205" ||
+    msg.includes("could not find the table") ||
+    msg.includes("schema cache")
+  );
+}
+
+export async function getExpenses(userId?: string): Promise<Expense[]> {
+  const localExpenses = await getLocalExpenses();
+  try {
+    if (!supabase) return localExpenses;
     const uid = userId ?? (await getCurrentUser())?.id;
-    if (!uid) return [];
+    if (!uid) return localExpenses;
 
     const { data, error } = await supabase
       .from("expenses")
@@ -44,18 +78,22 @@ export async function getExpenses(userId?: string): Promise<Expense[]> {
       .order("target_date", { ascending: true });
 
     if (error) {
-      console.error("Failed to load expenses from Supabase:", error);
-      return [];
+      if (!isTableMissingError(error)) {
+        console.error("Failed to load expenses from Supabase:", error);
+      }
+      return localExpenses;
     }
 
     if (!data || data.length === 0) {
-      return [];
+      return localExpenses;
     }
 
-    return data.map(mapExpenseRowToExpense);
+    const expenses = data.map(mapExpenseRowToExpense);
+    await saveLocalExpenses(expenses);
+    return expenses;
   } catch (error) {
-    console.error("Failed to load expenses from Supabase:", error);
-    return [];
+    console.warn("Failed to load expenses from Supabase, fallback local:", error);
+    return localExpenses;
   }
 }
 
@@ -63,15 +101,21 @@ export async function saveExpenses(
   expenses: Expense[],
   userId?: string
 ): Promise<void> {
+  await saveLocalExpenses(expenses);
+
   if (!supabase || expenses.length === 0) return;
-  const uid = userId ?? (await getCurrentUser())?.id;
+  const sessionRes = await supabase.auth.getSession();
+  const uid =
+    userId ??
+    sessionRes.data?.session?.user?.id ??
+    (await getCurrentUser())?.id;
   if (!uid) return;
 
   const rows: ExpenseInsert[] = expenses.map((e) => ({
     id: e.id,
     user_id: uid,
     title: e.title,
-    amount: e.amount,
+    amount: Number(e.amount) || 0,
     target_date: e.targetDate,
     category: e.category,
     is_active: e.isActive,
@@ -79,13 +123,19 @@ export async function saveExpenses(
     updated_at: new Date().toISOString(),
   }));
 
-  const { error } = await supabase
-    .from("expenses")
-    .upsert(rows, { onConflict: "id" });
+  try {
+    const { error } = await supabase
+      .from("expenses")
+      .upsert(rows, { onConflict: "id" });
 
-  if (error) {
-    console.error("Failed to save expenses to Supabase:", error);
-    throw error;
+    if (error && !isTableMissingError(error)) {
+      console.error("Failed to save expenses to Supabase:", error);
+      throw error;
+    }
+  } catch (err) {
+    if (!isTableMissingError(err)) {
+      throw err;
+    }
   }
 }
 
@@ -93,103 +143,165 @@ export async function addExpense(
   data: Omit<Expense, "id" | "updatedAt">,
   userId?: string
 ): Promise<Expense> {
-  if (!supabase) {
-    throw new Error("Supabase n'est pas configuré");
-  }
-
-  const uid = userId ?? (await getCurrentUser())?.id;
-  if (!uid) {
-    throw new Error("Utilisateur non authentifié");
-  }
-
   const newId =
     "exp_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6);
 
-  const rowInsert: ExpenseInsert = {
+  const localExpense: Expense = {
+    ...data,
     id: newId,
-    user_id: uid,
-    title: data.title,
-    amount: data.amount,
-    target_date: data.targetDate,
-    category: data.category,
-    is_active: data.isActive,
-    notes: data.notes ?? null,
+    amount: Number(data.amount) || 0,
+    updatedAt: new Date().toISOString(),
   };
 
-  const { data: inserted, error } = await supabase
-    .from("expenses")
-    .insert(rowInsert)
-    .select()
-    .single();
+  // 1. Sauvegarde locale
+  const currentLocal = await getLocalExpenses();
+  const updatedLocal = [localExpense, ...currentLocal.filter((e) => e.id !== newId)];
+  await saveLocalExpenses(updatedLocal);
 
-  if (error || !inserted) {
-    console.error("Failed to insert expense into Supabase:", error);
-    throw new Error(error?.message || "Erreur lors de l'ajout de la dépense");
+  // 2. Sauvegarde Supabase si dispo
+  if (supabase) {
+    try {
+      const sessionRes = await supabase.auth.getSession();
+      const uid =
+        userId ??
+        sessionRes.data?.session?.user?.id ??
+        (await getCurrentUser())?.id;
+
+      if (uid) {
+        const rowInsert: ExpenseInsert = {
+          id: newId,
+          user_id: uid,
+          title: data.title,
+          amount: Number(data.amount) || 0,
+          target_date: data.targetDate,
+          category: data.category,
+          is_active: data.isActive,
+          notes: data.notes ?? null,
+        };
+
+        const { data: inserted, error } = await supabase
+          .from("expenses")
+          .insert(rowInsert)
+          .select()
+          .single();
+
+        if (error) {
+          if (isTableMissingError(error)) {
+            console.warn("Table expenses manquante sur Supabase. Sauvegarde locale active.");
+            return localExpense;
+          }
+          console.error("Failed to insert expense into Supabase:", error);
+          throw new Error(error?.message || "Erreur lors de l'ajout de la dépense");
+        }
+
+        if (inserted) {
+          const exp = mapExpenseRowToExpense(inserted);
+          await saveLocalExpenses([exp, ...currentLocal.filter((e) => e.id !== newId)]);
+          return exp;
+        }
+      }
+    } catch (err) {
+      if (isTableMissingError(err)) {
+        return localExpense;
+      }
+      throw err;
+    }
   }
 
-  return mapExpenseRowToExpense(inserted);
+  return localExpense;
 }
 
 export async function updateExpense(
   id: string,
   updates: Partial<Omit<Expense, "id">>
 ): Promise<Expense | null> {
-  if (!supabase) return null;
-
-  const updatePayload: Partial<ExpenseUpdate> = {
-    updated_at: new Date().toISOString(),
-  };
-
-  if (updates.title !== undefined) updatePayload.title = updates.title;
-  if (updates.amount !== undefined) updatePayload.amount = updates.amount;
-  if (updates.targetDate !== undefined)
-    updatePayload.target_date = updates.targetDate;
-  if (updates.category !== undefined)
-    updatePayload.category = updates.category;
-  if (updates.isActive !== undefined)
-    updatePayload.is_active = updates.isActive;
-  if (updates.notes !== undefined)
-    updatePayload.notes = updates.notes ?? null;
-
-  const { data, error } = await supabase
-    .from("expenses")
-    .update(updatePayload)
-    .eq("id", id)
-    .select()
-    .single();
-
-  if (error || !data) {
-    console.error("Failed to update expense in Supabase:", error);
-    return null;
+  // 1. Mise à jour locale
+  const currentLocal = await getLocalExpenses();
+  const idx = currentLocal.findIndex((e) => e.id === id);
+  let updatedLocal: Expense | null = null;
+  if (idx !== -1) {
+    updatedLocal = {
+      ...currentLocal[idx],
+      ...updates,
+      amount: updates.amount !== undefined ? Number(updates.amount) || 0 : currentLocal[idx].amount,
+      updatedAt: new Date().toISOString(),
+    };
+    currentLocal[idx] = updatedLocal;
+    await saveLocalExpenses(currentLocal);
   }
 
-  return mapExpenseRowToExpense(data);
+  // 2. Mise à jour Supabase si dispo
+  if (supabase) {
+    try {
+      const updatePayload: Partial<ExpenseUpdate> = {
+        updated_at: new Date().toISOString(),
+      };
+
+      if (updates.title !== undefined) updatePayload.title = updates.title;
+      if (updates.amount !== undefined)
+        updatePayload.amount = Number(updates.amount) || 0;
+      if (updates.targetDate !== undefined)
+        updatePayload.target_date = updates.targetDate;
+      if (updates.category !== undefined)
+        updatePayload.category = updates.category;
+      if (updates.isActive !== undefined)
+        updatePayload.is_active = updates.isActive;
+      if (updates.notes !== undefined)
+        updatePayload.notes = updates.notes ?? null;
+
+      const { data, error } = await supabase
+        .from("expenses")
+        .update(updatePayload)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) {
+        if (!isTableMissingError(error)) {
+          console.error("Failed to update expense in Supabase:", error);
+        }
+        return updatedLocal;
+      }
+
+      if (data) {
+        const mapped = mapExpenseRowToExpense(data);
+        if (idx !== -1) {
+          currentLocal[idx] = mapped;
+          await saveLocalExpenses(currentLocal);
+        }
+        return mapped;
+      }
+    } catch {
+      return updatedLocal;
+    }
+  }
+
+  return updatedLocal;
 }
 
 export async function toggleExpenseActive(id: string): Promise<Expense | null> {
-  if (!supabase) return null;
+  const currentLocal = await getLocalExpenses();
+  const exp = currentLocal.find((e) => e.id === id);
+  const currentActive = exp ? exp.isActive : true;
 
-  const { data: current, error: getError } = await supabase
-    .from("expenses")
-    .select("is_active")
-    .eq("id", id)
-    .single();
-
-  if (getError || !current) {
-    console.error("Failed to fetch expense for toggle:", getError);
-    return null;
-  }
-
-  return updateExpense(id, { isActive: !current.is_active });
+  return updateExpense(id, { isActive: !currentActive });
 }
 
 export async function deleteExpense(id: string): Promise<void> {
+  const currentLocal = await getLocalExpenses();
+  await saveLocalExpenses(currentLocal.filter((e) => e.id !== id));
+
   if (!supabase) return;
 
-  const { error } = await supabase.from("expenses").delete().eq("id", id);
-
-  if (error) {
-    console.error("Failed to delete expense from Supabase:", error);
-    throw error;
+  try {
+    const { error } = await supabase.from("expenses").delete().eq("id", id);
+    if (error && !isTableMissingError(error)) {
+      console.error("Failed to delete expense from Supabase:", error);
+      throw error;
+    }
+  } catch (err) {
+    if (!isTableMissingError(err)) {
+      throw err;
+    }
   }
 }

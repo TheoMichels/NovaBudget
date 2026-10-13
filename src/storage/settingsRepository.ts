@@ -1,13 +1,32 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getCurrentUser } from "../services/authService";
 import { supabase } from "../services/supabaseClient";
 
 export const DEFAULT_SAFETY_CUSHION = 20000;
+const STORAGE_KEY = "@novabudget_safety_cushion_v3";
+
+async function getLocalSafetyCushion(): Promise<number> {
+  try {
+    const val = await AsyncStorage.getItem(STORAGE_KEY);
+    if (val && !isNaN(Number(val))) {
+      return Number(val);
+    }
+  } catch {}
+  return DEFAULT_SAFETY_CUSHION;
+}
+
+async function saveLocalSafetyCushion(amount: number): Promise<void> {
+  try {
+    await AsyncStorage.setItem(STORAGE_KEY, String(amount));
+  } catch {}
+}
 
 export async function getSafetyCushion(userId?: string): Promise<number> {
+  const localVal = await getLocalSafetyCushion();
   try {
-    if (!supabase) return DEFAULT_SAFETY_CUSHION;
+    if (!supabase) return localVal;
     const uid = userId ?? (await getCurrentUser())?.id;
-    if (!uid) return DEFAULT_SAFETY_CUSHION;
+    if (!uid) return localVal;
 
     const { data, error } = await supabase
       .from("user_settings")
@@ -16,8 +35,7 @@ export async function getSafetyCushion(userId?: string): Promise<number> {
       .maybeSingle();
 
     if (error) {
-      console.error("Failed to load safety cushion from Supabase:", error);
-      return DEFAULT_SAFETY_CUSHION;
+      return localVal;
     }
 
     if (
@@ -25,13 +43,14 @@ export async function getSafetyCushion(userId?: string): Promise<number> {
       data.safety_cushion != null &&
       !isNaN(Number(data.safety_cushion))
     ) {
-      return Number(data.safety_cushion);
+      const val = Number(data.safety_cushion);
+      await saveLocalSafetyCushion(val);
+      return val;
     }
 
-    return DEFAULT_SAFETY_CUSHION;
-  } catch (error) {
-    console.error("Failed to load safety cushion from Supabase:", error);
-    return DEFAULT_SAFETY_CUSHION;
+    return localVal;
+  } catch {
+    return localVal;
   }
 }
 
@@ -39,21 +58,21 @@ export async function saveSafetyCushion(
   amount: number,
   userId?: string
 ): Promise<void> {
+  await saveLocalSafetyCushion(amount);
+
   if (!supabase) return;
   const uid = userId ?? (await getCurrentUser())?.id;
   if (!uid) return;
 
-  const { error } = await supabase.from("user_settings").upsert(
-    {
-      user_id: uid,
-      safety_cushion: amount,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "user_id" }
-  );
-
-  if (error) {
-    console.error("Failed to save safety cushion to Supabase:", error);
-    throw error;
-  }
+  try {
+    await supabase.from("user_settings").upsert(
+      {
+        user_id: uid,
+        safety_cushion: amount,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id" }
+    );
+  } catch {}
 }
+
