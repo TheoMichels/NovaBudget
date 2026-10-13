@@ -35,7 +35,7 @@ export function Header({
 }: HeaderProps) {
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
-  const { user, isAuthenticated } = useAuth();
+  const { user, signOut } = useAuth();
   const [isAuthModalVisible, setIsAuthModalVisible] = useState(false);
 
   const handleOpenAuth = () => {
@@ -46,13 +46,9 @@ export function Header({
     }
   };
 
-  const cloudLabel = isAuthenticated
-    ? isMobile
-      ? `🟢 ${user?.email?.split("@")[0] ?? "Cloud"}`
-      : `🟢 ${user?.email ?? "Cloud connecté"}`
-    : isMobile
-    ? "☁️ Local"
-    : "☁️ Mode Local (Connexion)";
+  const userDisplayLabel = isMobile
+    ? `🟢 ${user?.email?.split("@")[0] ?? "Connecté"}`
+    : `🟢 ${user?.email ?? "Connecté"}`;
 
   return (
     <>
@@ -115,25 +111,25 @@ export function Header({
         <View style={styles.actionsRow}>
           {/* Cloud Auth Status Badge */}
           <Pressable
-            style={[
-              styles.cloudBadge,
-              isAuthenticated
-                ? styles.cloudBadgeConnected
-                : styles.cloudBadgeLocal,
-              cursorPointer,
-            ]}
+            style={[styles.cloudBadge, cursorPointer]}
             onPress={handleOpenAuth}
             accessibilityRole="button"
-            accessibilityLabel="Statut de connexion Cloud"
+            accessibilityLabel="Gérer mon compte et synchronisation"
           >
-            <Text
-              style={[
-                styles.cloudBadgeText,
-                isAuthenticated && styles.cloudBadgeTextConnected,
-              ]}
-              numberOfLines={1}
-            >
-              {cloudLabel}
+            <Text style={styles.cloudBadgeText} numberOfLines={1}>
+              {userDisplayLabel}
+            </Text>
+          </Pressable>
+
+          {/* Bouton direct de déconnexion rapide */}
+          <Pressable
+            style={[styles.btnSignOut, cursorPointer]}
+            onPress={() => signOut()}
+            accessibilityRole="button"
+            accessibilityLabel="Se déconnecter"
+          >
+            <Text style={styles.btnSignOutText}>
+              {isMobile ? "🚪" : "Déconnexion"}
             </Text>
           </Pressable>
 
@@ -246,26 +242,32 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     borderRadius: 12,
     borderWidth: 1,
+    backgroundColor: colors.positiveSoft,
+    borderColor: "rgba(5, 150, 105, 0.25)",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
   },
-  cloudBadgeLocal: {
-    backgroundColor: "rgba(15, 41, 34, 0.04)",
-    borderColor: "rgba(15, 41, 34, 0.12)",
-  },
-  cloudBadgeConnected: {
-    backgroundColor: colors.positiveSoft,
-    borderColor: "rgba(5, 150, 105, 0.25)",
-  },
   cloudBadgeText: {
     fontSize: 11,
     fontWeight: "700",
-    color: colors.textSecondary,
+    color: colors.primary,
     maxWidth: 160,
   },
-  cloudBadgeTextConnected: {
-    color: colors.primary,
+  btnSignOut: {
+    backgroundColor: "rgba(220, 38, 38, 0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(220, 38, 38, 0.25)",
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  btnSignOutText: {
+    color: colors.danger,
+    fontSize: 11,
+    fontWeight: "700",
   },
   btnSecondary: {
     backgroundColor: colors.warningSoft,

@@ -1,9 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import {
-  FutureProject,
-  MonthlyContributionConfig,
-  OneOffInflow,
-} from "../types/projection";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { getCurrentUser, onAuthStateChange } from "../services/authService";
 import {
   addFutureProject,
   addInflow,
@@ -18,32 +14,53 @@ import {
   updateFutureProject,
   updateInflow,
 } from "../storage/projectionRepository";
+import {
+  FutureProject,
+  MonthlyContributionConfig,
+  OneOffInflow,
+} from "../types/projection";
+
+const DEFAULT_MONTHLY_CONFIG: MonthlyContributionConfig = {
+  monthlyTotal: 800,
+};
 
 export function useProjections() {
   const [projects, setProjects] = useState<FutureProject[]>([]);
   const [inflows, setInflows] = useState<OneOffInflow[]>([]);
-  const [monthlyConfig, setMonthlyConfig] = useState<MonthlyContributionConfig>({
-    monthlyTotal: 800,
-  });
+  const [monthlyConfig, setMonthlyConfig] =
+    useState<MonthlyContributionConfig>(DEFAULT_MONTHLY_CONFIG);
   const [horizonMonths, setHorizonMonths] = useState<number>(12);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const currentUserIdRef = useRef<string | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (userId?: string) => {
     try {
       setLoading(true);
       setError(null);
+      const uid = userId ?? (await getCurrentUser())?.id ?? null;
+      currentUserIdRef.current = uid;
+
+      if (!uid) {
+        setProjects([]);
+        setInflows([]);
+        setMonthlyConfig(DEFAULT_MONTHLY_CONFIG);
+        return;
+      }
+
       const [projData, infData, monthData] = await Promise.all([
-        getFutureProjects(),
-        getInflows(),
-        getMonthlyContribution(),
+        getFutureProjects(uid),
+        getInflows(uid),
+        getMonthlyContribution(uid),
       ]);
       setProjects(projData);
       setInflows(infData);
       setMonthlyConfig(monthData);
     } catch (e) {
       setError(
-        e instanceof Error ? e.message : "Erreur de chargement des projections"
+        e instanceof Error
+          ? e.message
+          : "Erreur de chargement des projections"
       );
     } finally {
       setLoading(false);
@@ -51,7 +68,48 @@ export function useProjections() {
   }, []);
 
   useEffect(() => {
-    load();
+    let isMounted = true;
+
+    // Chargement initial
+    getCurrentUser()
+      .then((user) => {
+        if (!isMounted) return;
+        if (user) {
+          load(user.id);
+        } else {
+          setProjects([]);
+          setInflows([]);
+          setMonthlyConfig(DEFAULT_MONTHLY_CONFIG);
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setProjects([]);
+          setInflows([]);
+          setMonthlyConfig(DEFAULT_MONTHLY_CONFIG);
+          setLoading(false);
+        }
+      });
+
+    // Écoute des changements d'authentification
+    const subscription = onAuthStateChange((_session, user) => {
+      if (!isMounted) return;
+      if (user) {
+        load(user.id);
+      } else {
+        currentUserIdRef.current = null;
+        setProjects([]);
+        setInflows([]);
+        setMonthlyConfig(DEFAULT_MONTHLY_CONFIG);
+        setLoading(false);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, [load]);
 
   // Projects Handlers
@@ -142,7 +200,7 @@ export function useProjections() {
     horizonMonths,
     loading,
     error,
-    reload: load,
+    reload: () => load(),
     setHorizonMonths,
     addProject: handleAddProject,
     updateProject: handleUpdateProject,

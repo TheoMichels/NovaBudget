@@ -1,32 +1,79 @@
-import { useCallback, useEffect, useState } from "react";
-import { SavingsAccount } from "../types/savingsAccount";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { getCurrentUser, onAuthStateChange } from "../services/authService";
 import {
   addSavings,
   deleteSavings,
   getSavings,
   updateSavings,
 } from "../storage/savingsRepository";
+import { SavingsAccount } from "../types/savingsAccount";
 
 export function useSavings() {
   const [accounts, setAccounts] = useState<SavingsAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const currentUserIdRef = useRef<string | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (userId?: string) => {
     try {
       setLoading(true);
       setError(null);
-      const data = await getSavings();
+      const uid = userId ?? (await getCurrentUser())?.id ?? null;
+      currentUserIdRef.current = uid;
+
+      if (!uid) {
+        setAccounts([]);
+        return;
+      }
+
+      const data = await getSavings(uid);
       setAccounts(data);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Erreur de chargement des épargnes");
+      setError(
+        e instanceof Error ? e.message : "Erreur de chargement des épargnes"
+      );
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    load();
+    let isMounted = true;
+
+    // Chargement initial
+    getCurrentUser()
+      .then((user) => {
+        if (!isMounted) return;
+        if (user) {
+          load(user.id);
+        } else {
+          setAccounts([]);
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setAccounts([]);
+          setLoading(false);
+        }
+      });
+
+    // Écoute des changements d'authentification
+    const subscription = onAuthStateChange((_session, user) => {
+      if (!isMounted) return;
+      if (user) {
+        load(user.id);
+      } else {
+        currentUserIdRef.current = null;
+        setAccounts([]);
+        setLoading(false);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, [load]);
 
   const handleAdd = useCallback(
@@ -58,7 +105,7 @@ export function useSavings() {
     accounts,
     loading,
     error,
-    reload: load,
+    reload: () => load(),
     addAccount: handleAdd,
     updateAccount: handleUpdate,
     removeAccount: handleRemove,

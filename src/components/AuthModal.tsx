@@ -207,10 +207,10 @@ export function AuthModal({ visible, onClose, onAuthSuccess }: AuthModalProps) {
               {!isSupabaseConfigured && (
                 <View style={styles.unconfiguredBanner}>
                   <Text style={styles.unconfiguredTitle}>
-                    ⚡ Mode Démonstration Locale
+                    ⚠️ Configuration Supabase Requise
                   </Text>
                   <Text style={styles.unconfiguredText}>
-                    Les clés Supabase (`EXPO_PUBLIC_SUPABASE_URL`) ne sont pas encore configurées dans votre environnement. Vos données restent enregistrées localement sur cet appareil.
+                    Veuillez renseigner EXPO_PUBLIC_SUPABASE_URL et EXPO_PUBLIC_SUPABASE_ANON_KEY dans votre fichier .env. Un compte Supabase est obligatoire pour synchroniser vos données.
                   </Text>
                 </View>
               )}
@@ -418,18 +418,6 @@ export function AuthModal({ visible, onClose, onAuthSuccess }: AuthModalProps) {
                       </Text>
                     )}
                   </Pressable>
-
-                  {/* Séparateur / Mode invité */}
-                  <View style={styles.guestSection}>
-                    <Pressable
-                      style={[styles.guestBtn, cursorPointer]}
-                      onPress={handleClose}
-                    >
-                      <Text style={styles.guestBtnText}>
-                        Continuer en mode local (invité)
-                      </Text>
-                    </Pressable>
-                  </View>
                 </View>
               )}
             </ScrollView>
@@ -623,20 +611,6 @@ const styles = StyleSheet.create({
   },
   btnDisabled: {
     opacity: 0.65,
-  },
-  guestSection: {
-    alignItems: "center",
-    marginTop: 2,
-  },
-  guestBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-  },
-  guestBtnText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: colors.textSecondary,
-    textDecorationLine: "underline",
   },
   authenticatedSection: {
     gap: 16,

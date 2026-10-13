@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
@@ -11,6 +12,8 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
 import { colors, gradient } from "./src/theme/colors";
+import { useAuth } from "./src/hooks/useAuth";
+import { AuthScreen } from "./src/components/AuthScreen";
 import { useSavings } from "./src/hooks/useSavings";
 import { useExpenses } from "./src/hooks/useExpenses";
 import { useForecast } from "./src/hooks/useForecast";
@@ -24,7 +27,7 @@ import { AddSavingsModal } from "./src/components/AddSavingsModal";
 import { AddExpenseModal } from "./src/components/AddExpenseModal";
 import { ProjectionsTab } from "./src/components/projections/ProjectionsTab";
 
-export default function App() {
+function AuthenticatedDashboard(): React.JSX.Element {
   const { width } = useWindowDimensions();
   const isDesktop = width >= 1024;
   const isMobile = width < 768;
@@ -35,7 +38,7 @@ export default function App() {
   const [isAddProjectVisible, setIsAddProjectVisible] = useState(false);
   const [isAddInflowVisible, setIsAddInflowVisible] = useState(false);
 
-  // Hooks
+  // Hooks métiers
   const {
     accounts,
     addAccount,
@@ -169,7 +172,42 @@ export default function App() {
   );
 }
 
+export default function App(): React.JSX.Element {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <LinearGradient
+        colors={gradient.colors}
+        locations={gradient.locations}
+        start={gradient.start}
+        end={gradient.end}
+        style={styles.loadingContainer}
+      >
+        <StatusBar style="dark" />
+        <ActivityIndicator size="large" color="#0D9488" />
+      </LinearGradient>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <>
+        <StatusBar style="dark" />
+        <AuthScreen />
+      </>
+    );
+  }
+
+  return <AuthenticatedDashboard />;
+}
+
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   gradientContainer: {
     flex: 1,
   },

@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { Expense } from "../types/expense";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { getCurrentUser, onAuthStateChange } from "../services/authService";
 import {
   addExpense,
   deleteExpense,
@@ -7,27 +7,74 @@ import {
   toggleExpenseActive,
   updateExpense,
 } from "../storage/expenseRepository";
+import { Expense } from "../types/expense";
 
 export function useExpenses() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const currentUserIdRef = useRef<string | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (userId?: string) => {
     try {
       setLoading(true);
       setError(null);
-      const data = await getExpenses();
+      const uid = userId ?? (await getCurrentUser())?.id ?? null;
+      currentUserIdRef.current = uid;
+
+      if (!uid) {
+        setExpenses([]);
+        return;
+      }
+
+      const data = await getExpenses(uid);
       setExpenses(data);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Erreur de chargement des dépenses");
+      setError(
+        e instanceof Error ? e.message : "Erreur de chargement des dépenses"
+      );
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    load();
+    let isMounted = true;
+
+    // Chargement initial
+    getCurrentUser()
+      .then((user) => {
+        if (!isMounted) return;
+        if (user) {
+          load(user.id);
+        } else {
+          setExpenses([]);
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setExpenses([]);
+          setLoading(false);
+        }
+      });
+
+    // Écoute des changements de session / déconnexion / connexion
+    const subscription = onAuthStateChange((_session, user) => {
+      if (!isMounted) return;
+      if (user) {
+        load(user.id);
+      } else {
+        currentUserIdRef.current = null;
+        setExpenses([]);
+        setLoading(false);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, [load]);
 
   const handleAdd = useCallback(
@@ -67,7 +114,7 @@ export function useExpenses() {
     expenses,
     loading,
     error,
-    reload: load,
+    reload: () => load(),
     addExpense: handleAdd,
     updateExpense: handleUpdate,
     toggleExpenseActive: handleToggleActive,

@@ -1,116 +1,195 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Expense } from "../types/expense";
+import { getCurrentUser } from "../services/authService";
+import { supabase } from "../services/supabaseClient";
+import { ExpenseInsert, ExpenseRow, ExpenseUpdate } from "../types/database";
+import { Expense, ExpenseCategory } from "../types/expense";
 
-const STORAGE_KEY = "@novabudget_expenses_v2";
-
-const DEFAULT_EXPENSES: Expense[] = [
-  {
-    id: "exp_1",
-    title: "Voyage été Italie (2 semaines)",
-    amount: 2800,
-    targetDate: "2026-07",
-    category: "voyage",
-    isActive: true,
-    notes: "Billets, hôtel et activités",
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: "exp_2",
-    title: "Changement canapé salon",
-    amount: 1600,
-    targetDate: "2026-09",
-    category: "logement",
-    isActive: true,
-    notes: "Achat mobilier",
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: "exp_3",
-    title: "Taxe Foncière annuelle",
-    amount: 2000,
-    targetDate: "2026-10",
-    category: "fiscalite",
-    isActive: true,
-    notes: "Prélèvement d'automne",
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: "exp_4",
-    title: "Révision & Contrôle Véhicule",
-    amount: 7000,
-    targetDate: "2026-11",
-    category: "vehicule",
-    isActive: true,
-    notes: "Entretien et réparations",
-    updatedAt: new Date().toISOString(),
-  },
+const VALID_CATEGORIES: readonly ExpenseCategory[] = [
+  "voyage",
+  "logement",
+  "vehicule",
+  "famille",
+  "fiscalite",
+  "autre",
 ];
 
-export async function getExpenses(): Promise<Expense[]> {
+function sanitizeCategory(cat: string): ExpenseCategory {
+  return VALID_CATEGORIES.includes(cat as ExpenseCategory)
+    ? (cat as ExpenseCategory)
+    : "autre";
+}
+
+function mapExpenseRowToExpense(row: ExpenseRow): Expense {
+  return {
+    id: row.id,
+    title: row.title,
+    amount: Number(row.amount) || 0,
+    targetDate: row.target_date,
+    category: sanitizeCategory(row.category),
+    isActive: Boolean(row.is_active),
+    notes: row.notes ?? undefined,
+    updatedAt: row.updated_at,
+  };
+}
+
+export async function getExpenses(userId?: string): Promise<Expense[]> {
   try {
-    const json = await AsyncStorage.getItem(STORAGE_KEY);
-    if (!json) {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_EXPENSES));
-      return DEFAULT_EXPENSES;
+    if (!supabase) return [];
+    const uid = userId ?? (await getCurrentUser())?.id;
+    if (!uid) return [];
+
+    const { data, error } = await supabase
+      .from("expenses")
+      .select("*")
+      .eq("user_id", uid)
+      .order("target_date", { ascending: true });
+
+    if (error) {
+      console.error("Failed to load expenses from Supabase:", error);
+      return [];
     }
-    const parsed = JSON.parse(json);
-    return Array.isArray(parsed) ? parsed : DEFAULT_EXPENSES;
+
+    if (!data || data.length === 0) {
+      return [];
+    }
+
+    return data.map(mapExpenseRowToExpense);
   } catch (error) {
-    console.error("Failed to load expenses from storage", error);
-    return DEFAULT_EXPENSES;
+    console.error("Failed to load expenses from Supabase:", error);
+    return [];
   }
 }
 
-export async function saveExpenses(expenses: Expense[]): Promise<void> {
-  try {
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(expenses));
-  } catch (error) {
-    console.error("Failed to save expenses to storage", error);
+export async function saveExpenses(
+  expenses: Expense[],
+  userId?: string
+): Promise<void> {
+  if (!supabase || expenses.length === 0) return;
+  const uid = userId ?? (await getCurrentUser())?.id;
+  if (!uid) return;
+
+  const rows: ExpenseInsert[] = expenses.map((e) => ({
+    id: e.id,
+    user_id: uid,
+    title: e.title,
+    amount: e.amount,
+    target_date: e.targetDate,
+    category: e.category,
+    is_active: e.isActive,
+    notes: e.notes ?? null,
+    updated_at: new Date().toISOString(),
+  }));
+
+  const { error } = await supabase
+    .from("expenses")
+    .upsert(rows, { onConflict: "id" });
+
+  if (error) {
+    console.error("Failed to save expenses to Supabase:", error);
     throw error;
   }
 }
 
 export async function addExpense(
-  data: Omit<Expense, "id" | "updatedAt">
+  data: Omit<Expense, "id" | "updatedAt">,
+  userId?: string
 ): Promise<Expense> {
-  const current = await getExpenses();
-  const newExpense: Expense = {
-    ...data,
-    id: "exp_" + Date.now() + "_" + Math.random().toString(36).substr(2, 4),
-    updatedAt: new Date().toISOString(),
+  if (!supabase) {
+    throw new Error("Supabase n'est pas configuré");
+  }
+
+  const uid = userId ?? (await getCurrentUser())?.id;
+  if (!uid) {
+    throw new Error("Utilisateur non authentifié");
+  }
+
+  const newId =
+    "exp_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6);
+
+  const rowInsert: ExpenseInsert = {
+    id: newId,
+    user_id: uid,
+    title: data.title,
+    amount: data.amount,
+    target_date: data.targetDate,
+    category: data.category,
+    is_active: data.isActive,
+    notes: data.notes ?? null,
   };
-  const updated = [newExpense, ...current];
-  await saveExpenses(updated);
-  return newExpense;
+
+  const { data: inserted, error } = await supabase
+    .from("expenses")
+    .insert(rowInsert)
+    .select()
+    .single();
+
+  if (error || !inserted) {
+    console.error("Failed to insert expense into Supabase:", error);
+    throw new Error(error?.message || "Erreur lors de l'ajout de la dépense");
+  }
+
+  return mapExpenseRowToExpense(inserted);
 }
 
 export async function updateExpense(
   id: string,
   updates: Partial<Omit<Expense, "id">>
 ): Promise<Expense | null> {
-  const current = await getExpenses();
-  const index = current.findIndex((e) => e.id === id);
-  if (index === -1) return null;
+  if (!supabase) return null;
 
-  const updatedExpense: Expense = {
-    ...current[index],
-    ...updates,
-    updatedAt: new Date().toISOString(),
+  const updatePayload: Partial<ExpenseUpdate> = {
+    updated_at: new Date().toISOString(),
   };
-  current[index] = updatedExpense;
-  await saveExpenses(current);
-  return updatedExpense;
+
+  if (updates.title !== undefined) updatePayload.title = updates.title;
+  if (updates.amount !== undefined) updatePayload.amount = updates.amount;
+  if (updates.targetDate !== undefined)
+    updatePayload.target_date = updates.targetDate;
+  if (updates.category !== undefined)
+    updatePayload.category = updates.category;
+  if (updates.isActive !== undefined)
+    updatePayload.is_active = updates.isActive;
+  if (updates.notes !== undefined)
+    updatePayload.notes = updates.notes ?? null;
+
+  const { data, error } = await supabase
+    .from("expenses")
+    .update(updatePayload)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error || !data) {
+    console.error("Failed to update expense in Supabase:", error);
+    return null;
+  }
+
+  return mapExpenseRowToExpense(data);
 }
 
 export async function toggleExpenseActive(id: string): Promise<Expense | null> {
-  const current = await getExpenses();
-  const item = current.find((e) => e.id === id);
-  if (!item) return null;
-  return updateExpense(id, { isActive: !item.isActive });
+  if (!supabase) return null;
+
+  const { data: current, error: getError } = await supabase
+    .from("expenses")
+    .select("is_active")
+    .eq("id", id)
+    .single();
+
+  if (getError || !current) {
+    console.error("Failed to fetch expense for toggle:", getError);
+    return null;
+  }
+
+  return updateExpense(id, { isActive: !current.is_active });
 }
 
 export async function deleteExpense(id: string): Promise<void> {
-  const current = await getExpenses();
-  const filtered = current.filter((e) => e.id !== id);
-  await saveExpenses(filtered);
+  if (!supabase) return;
+
+  const { error } = await supabase.from("expenses").delete().eq("id", id);
+
+  if (error) {
+    console.error("Failed to delete expense from Supabase:", error);
+    throw error;
+  }
 }
