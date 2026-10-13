@@ -1,4 +1,4 @@
-import { AuthError, Session, User } from "@supabase/supabase-js";
+import { AuthChangeEvent, AuthError, Session, User } from "@supabase/supabase-js";
 import { supabase } from "./supabaseClient";
 
 export interface AuthResponse {
@@ -154,10 +154,10 @@ export async function getSession(): Promise<Session | null> {
 }
 
 /**
- * Écoute les changements d'état d'authentification (connexion, déconnexion, rafraîchissement de token).
+ * Écoute les changements d'état d'authentification (connexion, déconnexion, rafraîchissement de token, session initiale).
  */
 export function onAuthStateChange(
-  callback: (session: Session | null, user: User | null) => void
+  callback: (session: Session | null, user: User | null, event: AuthChangeEvent) => void
 ): AuthSubscription {
   if (!supabase) {
     return { unsubscribe: () => {} };
@@ -165,8 +165,8 @@ export function onAuthStateChange(
 
   const {
     data: { subscription },
-  } = supabase.auth.onAuthStateChange((_event, session) => {
-    callback(session, session?.user ?? null);
+  } = supabase.auth.onAuthStateChange((event, session) => {
+    callback(session, session?.user ?? null, event);
   });
 
   return {

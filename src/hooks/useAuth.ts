@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { Session, User } from "@supabase/supabase-js";
+import { useCallback, useEffect, useSyncExternalStore } from "react";
+import { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 import {
   getSession,
   onAuthStateChange,
@@ -25,69 +25,168 @@ export interface UseAuthReturn {
   clearError: () => void;
 }
 
+interface AuthState {
+  user: User | null;
+  session: Session | null;
+  isLoading: boolean;
+  error: string | null;
+}
+
+// État singleton partagé entre tous les consommateurs de useAuth pour synchroniser immédiatement l'App, les Modals et les Headers
+let globalAuthState: AuthState = {
+  user: null,
+  session: null,
+  isLoading: true,
+  error: null,
+};
+
+const listeners = new Set<() => void>();
+
+function notifyListeners(): void {
+  listeners.forEach((listener) => {
+    try {
+      listener();
+    } catch {
+      // Préserver les autres écouteurs si un composant échoue
+    }
+  });
+}
+
+function setGlobalAuthState(partial: Partial<AuthState>): void {
+  globalAuthState = {
+    ...globalAuthState,
+    ...partial,
+  };
+  notifyListeners();
+}
+
+let initPromise: Promise<void> | null = null;
+let authSubscriptionActive = false;
+
+/**
+ * Initialise l'authentification : écoute les événements Supabase Auth et résout la session persistée.
+ * S'exécute de manière idempotente pour que tous les consommateurs partagent le même cycle.
+ */
+function initAuth(): Promise<void> {
+  if (initPromise) {
+    return initPromise;
+  }
+
+  if (!authSubscriptionActive) {
+    authSubscriptionActive = true;
+    onAuthStateChange((newSession, newUser, event) => {
+      switch (event) {
+        case "INITIAL_SESSION":
+          setGlobalAuthState({
+            session: newSession,
+            user: newUser,
+            isLoading: false,
+          });
+          break;
+        case "SIGNED_IN":
+          setGlobalAuthState({
+            session: newSession,
+            user: newUser,
+            isLoading: false,
+            error: null,
+          });
+          break;
+        case "SIGNED_OUT":
+          setGlobalAuthState({
+            session: null,
+            user: null,
+            isLoading: false,
+            error: null,
+          });
+          break;
+        case "TOKEN_REFRESHED":
+        case "USER_UPDATED":
+          setGlobalAuthState({
+            session: newSession,
+            user: newUser,
+            isLoading: false,
+          });
+          break;
+        default:
+          if (newSession !== undefined) {
+            setGlobalAuthState({
+              session: newSession,
+              user: newUser,
+            });
+          }
+          break;
+      }
+    });
+  }
+
+  initPromise = (async () => {
+    try {
+      const initialSession = await getSession();
+      setGlobalAuthState({
+        session: initialSession,
+        user: initialSession?.user ?? null,
+        isLoading: false,
+      });
+    } catch (err) {
+      setGlobalAuthState({
+        session: null,
+        user: null,
+        isLoading: false,
+        error: err instanceof Error ? err.message : null,
+      });
+    }
+  })();
+
+  return initPromise;
+}
+
+// Démarrer l'initialisation dès le chargement du module pour que la session locale soit disponible immédiatement
+initAuth();
+
 /**
  * Hook gérant l'état d'authentification Supabase pour NovaBudget.
  * Fournit l'état utilisateur, la session active, le statut de chargement et les actions d'authentification.
+ * Synchronise tous les composants abonnés (App, AuthScreen, AuthModal, Header) sans délai.
  */
 export function useAuth(): UseAuthReturn {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    async function initAuth() {
-      try {
-        const initialSession = await getSession();
-        if (isMounted) {
-          setSession(initialSession);
-          setUser(initialSession?.user ?? null);
-          setIsLoading(false);
-        }
-      } catch {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    }
-
+  const subscribe = useCallback((onStoreChange: () => void) => {
+    listeners.add(onStoreChange);
     initAuth();
-
-    const { unsubscribe } = onAuthStateChange((newSession, newUser) => {
-      if (isMounted) {
-        setSession(newSession);
-        setUser(newUser);
-        setIsLoading(false);
-      }
-    });
-
     return () => {
-      isMounted = false;
-      unsubscribe();
+      listeners.delete(onStoreChange);
     };
   }, []);
 
+  const getSnapshot = useCallback(() => globalAuthState, []);
+  const getServerSnapshot = useCallback(() => globalAuthState, []);
+
+  const state = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+
+  useEffect(() => {
+    initAuth();
+  }, []);
+
   const clearError = useCallback(() => {
-    setError(null);
+    setGlobalAuthState({ error: null });
   }, []);
 
   const signIn = useCallback(
     async (email: string, password: string): Promise<AuthActionResult> => {
-      setIsLoading(true);
-      setError(null);
+      setGlobalAuthState({ isLoading: true, error: null });
       const res = await apiSignIn(email, password);
-      setIsLoading(false);
 
       if (res.error) {
         const msg = res.error.message || "Erreur de connexion";
-        setError(msg);
+        setGlobalAuthState({ isLoading: false, error: msg });
         return { success: false, error: msg };
       }
 
-      setUser(res.user);
-      setSession(res.session);
+      setGlobalAuthState({
+        user: res.user,
+        session: res.session,
+        isLoading: false,
+        error: null,
+      });
       return { success: true };
     },
     []
@@ -95,44 +194,57 @@ export function useAuth(): UseAuthReturn {
 
   const signUp = useCallback(
     async (email: string, password: string): Promise<AuthActionResult> => {
-      setIsLoading(true);
-      setError(null);
+      setGlobalAuthState({ isLoading: true, error: null });
       const res = await apiSignUp(email, password);
-      setIsLoading(false);
 
       if (res.error) {
         const msg = res.error.message || "Erreur lors de la création du compte";
-        setError(msg);
+        setGlobalAuthState({ isLoading: false, error: msg });
         return { success: false, error: msg };
       }
 
-      setUser(res.user);
-      setSession(res.session);
+      if (res.session && res.user) {
+        setGlobalAuthState({
+          user: res.user,
+          session: res.session,
+          isLoading: false,
+          error: null,
+        });
+      } else {
+        setGlobalAuthState({
+          isLoading: false,
+          error: null,
+        });
+      }
+
       return { success: true };
     },
     []
   );
 
   const signOut = useCallback(async (): Promise<void> => {
-    setIsLoading(true);
-    setError(null);
+    setGlobalAuthState({ isLoading: true, error: null });
     const res = await apiSignOut();
-    setIsLoading(false);
 
     if (res.error) {
-      setError(res.error.message || "Erreur de déconnexion");
+      const msg = res.error.message || "Erreur de déconnexion";
+      setGlobalAuthState({ isLoading: false, error: msg });
     } else {
-      setUser(null);
-      setSession(null);
+      setGlobalAuthState({
+        user: null,
+        session: null,
+        isLoading: false,
+        error: null,
+      });
     }
   }, []);
 
   return {
-    user,
-    session,
-    isLoading,
-    isAuthenticated: Boolean(user),
-    error,
+    user: state.user,
+    session: state.session,
+    isLoading: state.isLoading,
+    isAuthenticated: Boolean(state.user),
+    error: state.error,
     signIn,
     signUp,
     signOut,

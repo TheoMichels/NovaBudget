@@ -1,3 +1,4 @@
+import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { Database } from "../types/database";
@@ -16,13 +17,86 @@ export const isSupabaseConfigured: boolean = Boolean(
 );
 
 /**
+ * Adaptateur de stockage hybride pour Supabase Auth :
+ * - Sur le Web : utilise window.localStorage de manière synchrone et immédiate pour une restauration
+ *   de session instantanée sans délai ni clignotement au rechargement de la page, tout en synchronisant
+ *   AsyncStorage en miroir/backup.
+ * - Sur mobile natif (iOS / Android) : utilise AsyncStorage.
+ */
+export const hybridAuthStorage = {
+  getItem: (key: string): string | null | Promise<string | null> => {
+    if (Platform.OS === "web" && typeof window !== "undefined" && window.localStorage) {
+      try {
+        const item = window.localStorage.getItem(key);
+        if (item !== null) {
+          return item;
+        }
+      } catch {
+        // En cas de restriction localStorage (ex: navigation privée stricte)
+      }
+      // Si la clé n'est pas encore dans localStorage, vérifier AsyncStorage et mettre en cache
+      return AsyncStorage.getItem(key).then((asyncItem) => {
+        if (asyncItem !== null && typeof window !== "undefined" && window.localStorage) {
+          try {
+            window.localStorage.setItem(key, asyncItem);
+          } catch {
+            // Ignorer l'erreur d'écriture
+          }
+        }
+        return asyncItem;
+      });
+    }
+    return AsyncStorage.getItem(key);
+  },
+  setItem: (key: string, value: string): Promise<void> | void => {
+    if (Platform.OS === "web" && typeof window !== "undefined" && window.localStorage) {
+      try {
+        window.localStorage.setItem(key, value);
+      } catch {
+        // Ignorer l'erreur locale
+      }
+    }
+    try {
+      const promise = AsyncStorage.setItem(key, value);
+      if (Platform.OS === "web") {
+        // Sur le Web, persistance synchrone effectuée ci-dessus, on ne bloque pas sur la promise
+        promise.catch(() => {});
+        return;
+      }
+      return promise;
+    } catch {
+      // Ignorer
+    }
+  },
+  removeItem: (key: string): Promise<void> | void => {
+    if (Platform.OS === "web" && typeof window !== "undefined" && window.localStorage) {
+      try {
+        window.localStorage.removeItem(key);
+      } catch {
+        // Ignorer l'erreur locale
+      }
+    }
+    try {
+      const promise = AsyncStorage.removeItem(key);
+      if (Platform.OS === "web") {
+        promise.catch(() => {});
+        return;
+      }
+      return promise;
+    } catch {
+      // Ignorer
+    }
+  },
+};
+
+/**
  * Instance Supabase typée avec l'interface Database de NovaBudget.
  * Si les variables d'environnement sont absentes, reste null pour éviter tout crash au démarrage.
  */
 export const supabase: SupabaseClient<Database> | null = isSupabaseConfigured
   ? createClient<Database>(supabaseUrl as string, supabaseAnonKey as string, {
       auth: {
-        storage: AsyncStorage,
+        storage: hybridAuthStorage,
         autoRefreshToken: true,
         persistSession: true,
         detectSessionInUrl: false,
