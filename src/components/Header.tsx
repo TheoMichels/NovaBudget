@@ -29,8 +29,8 @@ export function Header({
   onSelectTab,
   onOpenAddSavings: _onOpenAddSavings,
   onOpenAddExpense: _onOpenAddExpense,
-  onOpenAddProject,
-  onOpenAddInflow,
+  onOpenAddProject: _onOpenAddProject,
+  onOpenAddInflow: _onOpenAddInflow,
   onOpenAuth,
 }: HeaderProps) {
   const { width } = useWindowDimensions();
@@ -140,29 +140,6 @@ export function Header({
           {isMobile ? "🚪" : "Déconnexion"}
         </Text>
       </Pressable>
-
-      {/* Actions contextuelles pour l'onglet projections */}
-      {activeTab === "projections" && (
-        <>
-          {!isMobile && onOpenAddInflow && (
-            <Pressable
-              style={[styles.btnInflow, cursorPointer]}
-              onPress={onOpenAddInflow}
-            >
-              <Text style={styles.btnInflowText}>+ Rentrée</Text>
-            </Pressable>
-          )}
-
-          {onOpenAddProject && (
-            <Pressable
-              style={[styles.btnPrimary, cursorPointer]}
-              onPress={onOpenAddProject}
-            >
-              <Text style={styles.btnPrimaryText}>+ Projet</Text>
-            </Pressable>
-          )}
-        </>
-      )}
     </View>
   );
 
@@ -295,31 +272,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "700",
   },
-  btnSecondary: {
-    backgroundColor: colors.warningSoft,
-    borderWidth: 1,
-    borderColor: "rgba(217, 119, 6, 0.2)",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-  },
-  btnSecondaryText: {
-    color: colors.warning,
-    fontWeight: "700",
-    fontSize: 12,
-  },
-  btnPrimary: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 12,
-    ...shadows.sm,
-  },
-  btnPrimaryText: {
-    color: "#FFFFFF",
-    fontWeight: "700",
-    fontSize: 12,
-  },
   tabsRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -357,18 +309,5 @@ const styles = StyleSheet.create({
   },
   tabBtnTextActive: {
     color: "#FFFFFF",
-  },
-  btnInflow: {
-    backgroundColor: colors.inflowSoft,
-    borderWidth: 1,
-    borderColor: "rgba(37, 99, 235, 0.25)",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-  },
-  btnInflowText: {
-    color: colors.inflow,
-    fontWeight: "700",
-    fontSize: 12,
   },
 });
