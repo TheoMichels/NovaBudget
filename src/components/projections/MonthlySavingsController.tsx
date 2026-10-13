@@ -30,6 +30,7 @@ export function MonthlySavingsController({
 }: MonthlySavingsControllerProps) {
   const { width } = useWindowDimensions();
   const isMobile = width < 600;
+  const isNarrow = width < 420;
   const currentTotal = monthlyConfig.monthlyTotal || 0;
 
   // Estimated monthly interest currently generated
@@ -40,8 +41,8 @@ export function MonthlySavingsController({
   return (
     <View style={[styles.container, isMobile && styles.containerMobile]}>
       <View style={styles.headerRow}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.title}>1. Capacité d'Épargne Mensuelle</Text>
+        <View style={{ flex: 1, minWidth: isNarrow ? "100%" : 200 }}>
+          <Text style={styles.title} numberOfLines={1}>1. Capacité d'Épargne Mensuelle</Text>
           <Text style={styles.subtitle}>
             Montant récurrent injecté chaque mois sur vos livrets & investissements.
           </Text>
@@ -54,50 +55,106 @@ export function MonthlySavingsController({
       {/* Main Total Box with Steppers */}
       <View style={styles.masterBox}>
         <Text style={styles.masterLabel}>EFFORT D'ÉPARGNE MENSUEL</Text>
-        <View style={[styles.masterAmountRow, isMobile && styles.masterAmountRowMobile]}>
-          <View style={styles.stepperGroup}>
-            <Pressable
-              style={[styles.stepperBtn, cursorPointer]}
-              onPress={() => onUpdateTotal(Math.max(0, currentTotal - 100))}
-              accessibilityLabel="Diminuer de 100€"
-            >
-              <Text style={styles.stepperBtnText}>-100</Text>
-            </Pressable>
 
-            <Pressable
-              style={[styles.stepperBtn, cursorPointer]}
-              onPress={() => onUpdateTotal(Math.max(0, currentTotal - 50))}
-              accessibilityLabel="Diminuer de 50€"
-            >
-              <Text style={styles.stepperBtnText}>-50</Text>
-            </Pressable>
+        {isNarrow ? (
+          /* Narrow Screen Layout: Centered amount + row of 4 steppers */
+          <View style={styles.masterAmountColNarrow}>
+            <View style={styles.amountDisplayNarrow}>
+              <Text
+                style={styles.amountValueMobile}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+              >
+                {formatEuro(currentTotal)}
+              </Text>
+              <Text style={styles.amountUnit}>/ mois</Text>
+            </View>
+
+            <View style={styles.steppersRowNarrow}>
+              <Pressable
+                style={[styles.stepperBtn, cursorPointer]}
+                onPress={() => onUpdateTotal(Math.max(0, currentTotal - 100))}
+                accessibilityLabel="Diminuer de 100€"
+              >
+                <Text style={styles.stepperBtnText}>-100</Text>
+              </Pressable>
+
+              <Pressable
+                style={[styles.stepperBtn, cursorPointer]}
+                onPress={() => onUpdateTotal(Math.max(0, currentTotal - 50))}
+                accessibilityLabel="Diminuer de 50€"
+              >
+                <Text style={styles.stepperBtnText}>-50</Text>
+              </Pressable>
+
+              <Pressable
+                style={[styles.stepperBtn, cursorPointer]}
+                onPress={() => onUpdateTotal(currentTotal + 50)}
+                accessibilityLabel="Augmenter de 50€"
+              >
+                <Text style={styles.stepperBtnText}>+50</Text>
+              </Pressable>
+
+              <Pressable
+                style={[styles.stepperBtn, cursorPointer]}
+                onPress={() => onUpdateTotal(currentTotal + 100)}
+                accessibilityLabel="Augmenter de 100€"
+              >
+                <Text style={styles.stepperBtnText}>+100</Text>
+              </Pressable>
+            </View>
           </View>
+        ) : (
+          /* Standard / Desktop Layout: Steppers framing the amount */
+          <View style={[styles.masterAmountRow, isMobile && styles.masterAmountRowMobile]}>
+            <View style={styles.stepperGroup}>
+              <Pressable
+                style={[styles.stepperBtn, cursorPointer]}
+                onPress={() => onUpdateTotal(Math.max(0, currentTotal - 100))}
+                accessibilityLabel="Diminuer de 100€"
+              >
+                <Text style={styles.stepperBtnText}>-100</Text>
+              </Pressable>
 
-          <View style={[styles.amountDisplay, isMobile && styles.amountDisplayMobile]}>
-            <Text style={[styles.amountValue, isMobile && styles.amountValueMobile]}>
-              {formatEuro(currentTotal)}
-            </Text>
-            <Text style={styles.amountUnit}>/ mois</Text>
+              <Pressable
+                style={[styles.stepperBtn, cursorPointer]}
+                onPress={() => onUpdateTotal(Math.max(0, currentTotal - 50))}
+                accessibilityLabel="Diminuer de 50€"
+              >
+                <Text style={styles.stepperBtnText}>-50</Text>
+              </Pressable>
+            </View>
+
+            <View style={[styles.amountDisplay, isMobile && styles.amountDisplayMobile]}>
+              <Text
+                style={[styles.amountValue, isMobile && styles.amountValueMobile]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+              >
+                {formatEuro(currentTotal)}
+              </Text>
+              <Text style={styles.amountUnit}>/ mois</Text>
+            </View>
+
+            <View style={styles.stepperGroup}>
+              <Pressable
+                style={[styles.stepperBtn, cursorPointer]}
+                onPress={() => onUpdateTotal(currentTotal + 50)}
+                accessibilityLabel="Augmenter de 50€"
+              >
+                <Text style={styles.stepperBtnText}>+50</Text>
+              </Pressable>
+
+              <Pressable
+                style={[styles.stepperBtn, cursorPointer]}
+                onPress={() => onUpdateTotal(currentTotal + 100)}
+                accessibilityLabel="Augmenter de 100€"
+              >
+                <Text style={styles.stepperBtnText}>+100</Text>
+              </Pressable>
+            </View>
           </View>
-
-          <View style={styles.stepperGroup}>
-            <Pressable
-              style={[styles.stepperBtn, cursorPointer]}
-              onPress={() => onUpdateTotal(currentTotal + 50)}
-              accessibilityLabel="Augmenter de 50€"
-            >
-              <Text style={styles.stepperBtnText}>+50</Text>
-            </Pressable>
-
-            <Pressable
-              style={[styles.stepperBtn, cursorPointer]}
-              onPress={() => onUpdateTotal(currentTotal + 100)}
-              accessibilityLabel="Augmenter de 100€"
-            >
-              <Text style={styles.stepperBtnText}>+100</Text>
-            </Pressable>
-          </View>
-        </View>
+        )}
 
         {/* Quick Presets */}
         <View style={styles.presetsRow}>
@@ -167,12 +224,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     justifyContent: "space-between",
+    flexWrap: "wrap",
     gap: 8,
   },
   title: {
     fontSize: 15,
     fontWeight: "800",
     color: colors.brand,
+    flexShrink: 1,
   },
   subtitle: {
     fontSize: 11,
@@ -204,6 +263,25 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: colors.textMuted,
     letterSpacing: 0.5,
+  },
+  masterAmountColNarrow: {
+    alignItems: "center",
+    width: "100%",
+    gap: 8,
+  },
+  amountDisplayNarrow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    justifyContent: "center",
+    gap: 4,
+  },
+  steppersRowNarrow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    flexWrap: "wrap",
+    gap: 8,
+    width: "100%",
   },
   masterAmountRow: {
     flexDirection: "row",

@@ -1,5 +1,14 @@
 import React from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  ViewStyle,
+  useWindowDimensions,
+} from "react-native";
 import { colors, shadows } from "../../theme/colors";
 import { cursorPointer } from "../../theme/webCursor";
 import { formatEuro } from "../../hooks/useForecast";
@@ -28,6 +37,10 @@ export function ProjectionKpiCards({
   monthlySavings,
   safetyCushionTarget,
 }: ProjectionKpiCardsProps) {
+  const { width } = useWindowDimensions();
+  const isMobile = width < 768;
+  const isNarrow = width < 400;
+
   const isPositiveDiff = forecast.netDiff >= 0;
   const activeProjectsCount = forecast.feasibilities.filter(
     (f) =>
@@ -37,18 +50,18 @@ export function ProjectionKpiCards({
   ).length;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isMobile && styles.containerMobile]}>
       {/* Top Controller Bar: Title + Horizon Selector */}
       <View style={styles.topBar}>
-        <View style={styles.titleBlock}>
+        <View style={[styles.titleBlock, isNarrow && styles.titleBlockNarrow]}>
           <View style={styles.badgeRow}>
             <View style={styles.pulseDot} />
             <Text style={styles.badgeText}>SIMULATEUR PROSPECTIF</Text>
-            <Text style={styles.baseLabel}>
+            <Text style={styles.baseLabel} numberOfLines={1}>
               • Base {formatEuro(forecast.initialSavings)}
             </Text>
           </View>
-          <Text style={styles.title}>Trajectoire & Projets Futurs</Text>
+          <Text style={styles.title} numberOfLines={1}>Trajectoire & Projets Futurs</Text>
           <Text style={styles.subtitle}>
             Simulation dynamique avec intérêts composés, capacité d'épargne et apports de projets.
           </Text>
@@ -93,16 +106,20 @@ export function ProjectionKpiCards({
       {/* 4 Metrics Grid */}
       <View style={styles.grid}>
         {/* 1. Épargne Projetée */}
-        <View style={[styles.card, styles.cardFinal]}>
+        <View style={[styles.card, styles.cardFinal, isNarrow && styles.cardNarrow]}>
           <View style={styles.cardHeader}>
-            <Text style={styles.cardLabel}>Épargne Projetée</Text>
+            <Text style={styles.cardLabel} numberOfLines={1}>Épargne Projetée</Text>
             <View style={[styles.iconCircle, { backgroundColor: colors.primarySoft }]}>
               <Text style={{ fontSize: 13 }}>🏁</Text>
             </View>
           </View>
 
           <View style={styles.amountRow}>
-            <Text style={styles.amountText}>
+            <Text
+              style={[styles.amountText, isNarrow && styles.amountTextNarrow]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+            >
               {formatEuro(forecast.finalSavings)}
             </Text>
             <View
@@ -132,6 +149,7 @@ export function ProjectionKpiCards({
                 styles.footerNoteValue,
                 { color: isPositiveDiff ? colors.primary : colors.danger },
               ]}
+              numberOfLines={1}
             >
               {isPositiveDiff ? "+" : ""}
               {formatEuro(forecast.netDiff)}
@@ -140,9 +158,12 @@ export function ProjectionKpiCards({
         </View>
 
         {/* 2. Épargne Programmée */}
-        <View style={[styles.card, styles.cardMonthly]}>
+        <View style={[styles.card, styles.cardMonthly, isNarrow && styles.cardNarrow]}>
           <View style={styles.cardHeader}>
-            <Text style={[styles.cardLabel, { color: colors.inflow }]}>
+            <Text
+              style={[styles.cardLabel, { color: colors.inflow }]}
+              numberOfLines={1}
+            >
               Épargne Programmée
             </Text>
             <View style={[styles.iconCircle, { backgroundColor: colors.inflowSoft }]}>
@@ -151,21 +172,35 @@ export function ProjectionKpiCards({
           </View>
 
           <View style={styles.amountRow}>
-            <Text style={[styles.amountText, { color: colors.brand }]}>
+            <Text
+              style={[
+                styles.amountText,
+                { color: colors.brand },
+                isNarrow && styles.amountTextNarrow,
+              ]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+            >
               +{formatEuro(forecast.totalProgrammedSavings)}
             </Text>
           </View>
 
           <View style={styles.footerNoteRow}>
             <Text style={styles.footerNoteLabel}>Effort mensuel :</Text>
-            <Text style={[styles.footerNoteValue, { color: colors.inflow }]}>
+            <Text
+              style={[styles.footerNoteValue, { color: colors.inflow }]}
+              numberOfLines={1}
+            >
               {formatEuro(monthlySavings)} / mois
             </Text>
           </View>
           {forecast.totalInflowsIn > 0 ? (
             <View style={[styles.footerNoteRow, styles.footerSubRow]}>
               <Text style={styles.footerNoteLabel}>dont rentrées :</Text>
-              <Text style={[styles.footerNoteValue, { color: colors.primary }]}>
+              <Text
+                style={[styles.footerNoteValue, { color: colors.primary }]}
+                numberOfLines={1}
+              >
                 +{formatEuro(forecast.totalInflowsIn)}
               </Text>
             </View>
@@ -173,9 +208,12 @@ export function ProjectionKpiCards({
         </View>
 
         {/* 3. Intérêts Composés */}
-        <View style={[styles.card, styles.cardInterest]}>
+        <View style={[styles.card, styles.cardInterest, isNarrow && styles.cardNarrow]}>
           <View style={styles.cardHeader}>
-            <Text style={[styles.cardLabel, { color: colors.primary }]}>
+            <Text
+              style={[styles.cardLabel, { color: colors.primary }]}
+              numberOfLines={1}
+            >
               Intérêts Composés
             </Text>
             <View style={[styles.iconCircle, { backgroundColor: colors.primarySoft }]}>
@@ -184,23 +222,37 @@ export function ProjectionKpiCards({
           </View>
 
           <View style={styles.amountRow}>
-            <Text style={[styles.amountText, { color: colors.primary }]}>
+            <Text
+              style={[
+                styles.amountText,
+                { color: colors.primary },
+                isNarrow && styles.amountTextNarrow,
+              ]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+            >
               +{formatEuro(forecast.totalInterest)}
             </Text>
           </View>
 
           <View style={styles.footerNoteRow}>
             <Text style={styles.footerNoteLabel}>Taux moyen calculé :</Text>
-            <Text style={[styles.footerNoteValue, { color: colors.primary }]}>
+            <Text
+              style={[styles.footerNoteValue, { color: colors.primary }]}
+              numberOfLines={1}
+            >
               {forecast.weightedAnnualRate}% / an
             </Text>
           </View>
         </View>
 
         {/* 4. Apports Projets Déduits */}
-        <View style={[styles.card, styles.cardProjects]}>
+        <View style={[styles.card, styles.cardProjects, isNarrow && styles.cardNarrow]}>
           <View style={styles.cardHeader}>
-            <Text style={[styles.cardLabel, { color: colors.warning }]}>
+            <Text
+              style={[styles.cardLabel, { color: colors.warning }]}
+              numberOfLines={1}
+            >
               Apports Projets
             </Text>
             <View style={[styles.iconCircle, { backgroundColor: colors.warningSoft }]}>
@@ -209,7 +261,15 @@ export function ProjectionKpiCards({
           </View>
 
           <View style={styles.amountRow}>
-            <Text style={[styles.amountText, { color: "#92400E" }]}>
+            <Text
+              style={[
+                styles.amountText,
+                { color: "#92400E" },
+                isNarrow && styles.amountTextNarrow,
+              ]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+            >
               {forecast.totalProjectsOut > 0
                 ? `-${formatEuro(forecast.totalProjectsOut)}`
                 : "0 €"}
@@ -218,7 +278,10 @@ export function ProjectionKpiCards({
 
           <View style={styles.footerNoteRow}>
             <Text style={styles.footerNoteLabel}>Projets financés :</Text>
-            <Text style={[styles.footerNoteValue, { color: colors.warning }]}>
+            <Text
+              style={[styles.footerNoteValue, { color: colors.warning }]}
+              numberOfLines={1}
+            >
               {activeProjectsCount}
             </Text>
           </View>
@@ -227,13 +290,13 @@ export function ProjectionKpiCards({
 
       {/* Cushion Safety Banner */}
       <View style={styles.safetyBanner}>
-        <View style={styles.safetyLeft}>
+        <View style={[styles.safetyLeft, isNarrow && styles.safetyLeftNarrow]}>
           <View style={styles.shieldBadge}>
             <Text style={{ fontSize: 16 }}>🛡️</Text>
           </View>
-          <View style={{ flex: 1 }}>
+          <View style={{ flex: 1, minWidth: 0 }}>
             <View style={styles.safetyTitleRow}>
-              <Text style={styles.safetyTitle}>
+              <Text style={styles.safetyTitle} numberOfLines={1}>
                 {forecast.isHealthy
                   ? "Matelas de Sécurité Intact"
                   : "Attention : Coussin de Sécurité Entamé"}
@@ -253,6 +316,7 @@ export function ProjectionKpiCards({
                       ? { color: colors.primary }
                       : { color: colors.danger },
                   ]}
+                  numberOfLines={1}
                 >
                   {formatEuro(safetyCushionTarget)} protégés
                 </Text>
@@ -311,8 +375,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     ...shadows.sm,
-    ...({ backdropFilter: "blur(20px)" } as any),
+    ...(Platform.OS === "web"
+      ? ({ backdropFilter: "blur(20px)" } as unknown as ViewStyle)
+      : {}),
     gap: 16,
+  },
+  containerMobile: {
+    padding: 14,
   },
   topBar: {
     flexDirection: "row",
@@ -325,9 +394,13 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 260,
   },
+  titleBlockNarrow: {
+    minWidth: "100%",
+  },
   badgeRow: {
     flexDirection: "row",
     alignItems: "center",
+    flexWrap: "wrap",
     gap: 6,
     marginBottom: 4,
   },
@@ -351,12 +424,14 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.textMuted,
     fontWeight: "500",
+    flexShrink: 1,
   },
   title: {
     fontSize: 18,
     fontWeight: "800",
     color: colors.brand,
     letterSpacing: -0.3,
+    flexShrink: 1,
   },
   subtitle: {
     fontSize: 12,
@@ -422,6 +497,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
+  cardNarrow: {
+    minWidth: 130,
+    padding: 12,
+  },
   cardFinal: {
     borderColor: "rgba(5, 150, 105, 0.35)",
   },
@@ -468,6 +547,10 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: colors.brand,
     letterSpacing: -0.4,
+    flexShrink: 1,
+  },
+  amountTextNarrow: {
+    fontSize: 18,
   },
   pillDiff: {
     paddingHorizontal: 6,
@@ -502,10 +585,12 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: colors.textMuted,
     fontWeight: "500",
+    flexShrink: 1,
   },
   footerNoteValue: {
     fontSize: 11,
     fontWeight: "700",
+    flexShrink: 0,
   },
   safetyBanner: {
     backgroundColor: "rgba(255, 255, 255, 0.8)",
@@ -524,7 +609,10 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     gap: 12,
     flex: 1,
-    minWidth: 260,
+    minWidth: 0,
+  },
+  safetyLeftNarrow: {
+    minWidth: "100%",
   },
   shieldBadge: {
     width: 36,

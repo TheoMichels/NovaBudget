@@ -7,6 +7,7 @@ import {
   TextInput,
   TextStyle,
   View,
+  useWindowDimensions,
 } from "react-native";
 import { colors, shadows } from "../theme/colors";
 import { cursorPointer } from "../theme/webCursor";
@@ -26,6 +27,10 @@ export function SavingsSection({
   onUpdateAmount,
   onRemove,
 }: SavingsSectionProps) {
+  const { width } = useWindowDimensions();
+  const isMobile = width < 768;
+  const isNarrow = width < 400;
+
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editAmount, setEditAmount] = useState<string>("");
 
@@ -53,7 +58,7 @@ export function SavingsSection({
     <View style={styles.container}>
       <View style={styles.headerRow}>
         <View style={styles.titleGroup}>
-          <Text style={styles.title}>Supports d'Épargne</Text>
+          <Text style={styles.title} numberOfLines={1}>Supports d'Épargne</Text>
           <View style={styles.countBadge}>
             <Text style={styles.countText}>
               {accounts.length} support{accounts.length > 1 ? "s" : ""}
@@ -92,7 +97,10 @@ export function SavingsSection({
             const isEditing = editingId === acc.id;
 
             return (
-              <View key={acc.id} style={styles.card}>
+              <View
+                key={acc.id}
+                style={[styles.card, isNarrow && styles.cardNarrow]}
+              >
                 <View style={styles.cardLeft}>
                   {/* Bank Avatar */}
                   <View style={styles.bankAvatar}>
@@ -163,13 +171,20 @@ export function SavingsSection({
                         hitSlop={6}
                       >
                         <View style={styles.amountValueRow}>
-                          <Text style={styles.amountVal}>
+                          <Text
+                            style={[
+                              styles.amountVal,
+                              isNarrow && styles.amountValNarrow,
+                            ]}
+                            numberOfLines={1}
+                            adjustsFontSizeToFit
+                          >
                             {formatEuro(acc.amount)}
                           </Text>
                           <Text style={styles.editIcon}>✎</Text>
                         </View>
                         {annualGain > 0 && (
-                          <Text style={styles.yieldVal}>
+                          <Text style={styles.yieldVal} numberOfLines={1}>
                             +{formatEuro(annualGain)}/an
                           </Text>
                         )}
@@ -202,16 +217,22 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    flexWrap: "wrap",
+    gap: 8,
   },
   titleGroup: {
     flexDirection: "row",
     alignItems: "center",
+    flexWrap: "wrap",
     gap: 8,
+    flexShrink: 1,
+    minWidth: 0,
   },
   title: {
     fontSize: 16,
     fontWeight: "800",
     color: colors.brand,
+    flexShrink: 1,
   },
   countBadge: {
     backgroundColor: colors.primarySoft,
@@ -251,6 +272,10 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 8,
     ...shadows.sm,
+  },
+  cardNarrow: {
+    padding: 10,
+    gap: 6,
   },
   cardLeft: {
     flexDirection: "row",
@@ -337,6 +362,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "800",
     color: colors.brand,
+  },
+  amountValNarrow: {
+    fontSize: 13,
   },
   editIcon: {
     fontSize: 11,

@@ -158,9 +158,22 @@ export function SimulatorWaterfall({
       </View>
 
       {/* Numerical Waterfall summary */}
-      <View style={[styles.stepsRow, isMobile && styles.stepsRowMobile]}>
+      <View
+        style={[
+          styles.stepsRow,
+          isMobile && styles.stepsRowMobile,
+          isNarrow && styles.stepsRowNarrow,
+        ]}
+      >
         <View style={[styles.stepItem, isMobile && styles.stepItemMobile]}>
-          <Text style={[styles.stepLabel, isMobile && styles.stepLabelMobile]} numberOfLines={1}>
+          <Text
+            style={[
+              styles.stepLabel,
+              isMobile && styles.stepLabelMobile,
+              isNarrow && styles.stepLabelNarrow,
+            ]}
+            numberOfLines={1}
+          >
             Épargne départ
           </Text>
           <Text
@@ -168,8 +181,10 @@ export function SimulatorWaterfall({
               styles.stepVal,
               { color: colors.brand },
               isMobile && styles.stepValMobile,
+              isNarrow && styles.stepValNarrow,
             ]}
             numberOfLines={1}
+            adjustsFontSizeToFit
           >
             {formatEuro(initialSavings)}
           </Text>
@@ -178,7 +193,14 @@ export function SimulatorWaterfall({
         <Text style={[styles.operator, isMobile && styles.operatorMobile]}>-</Text>
 
         <View style={[styles.stepItem, isMobile && styles.stepItemMobile]}>
-          <Text style={[styles.stepLabel, isMobile && styles.stepLabelMobile]} numberOfLines={1}>
+          <Text
+            style={[
+              styles.stepLabel,
+              isMobile && styles.stepLabelMobile,
+              isNarrow && styles.stepLabelNarrow,
+            ]}
+            numberOfLines={1}
+          >
             Dépenses engagées
           </Text>
           <Text
@@ -186,8 +208,10 @@ export function SimulatorWaterfall({
               styles.stepVal,
               { color: "#92400E" },
               isMobile && styles.stepValMobile,
+              isNarrow && styles.stepValNarrow,
             ]}
             numberOfLines={1}
+            adjustsFontSizeToFit
           >
             {expensesAmount > 0 ? `-${formatEuro(expensesAmount)}` : "0 €"}
           </Text>
@@ -196,7 +220,14 @@ export function SimulatorWaterfall({
         <Text style={[styles.operator, isMobile && styles.operatorMobile]}>=</Text>
 
         <View style={[styles.stepItem, isMobile && styles.stepItemMobile]}>
-          <Text style={[styles.stepLabel, isMobile && styles.stepLabelMobile]} numberOfLines={1}>
+          <Text
+            style={[
+              styles.stepLabel,
+              isMobile && styles.stepLabelMobile,
+              isNarrow && styles.stepLabelNarrow,
+            ]}
+            numberOfLines={1}
+          >
             Épargne résiduelle
           </Text>
           <Text
@@ -204,8 +235,10 @@ export function SimulatorWaterfall({
               styles.stepVal,
               { color: colors.primary },
               isMobile && styles.stepValMobile,
+              isNarrow && styles.stepValNarrow,
             ]}
             numberOfLines={1}
+            adjustsFontSizeToFit
           >
             {formatEuro(residualSavings)}
           </Text>
@@ -324,12 +357,14 @@ const styles = StyleSheet.create({
   titleRow: {
     flexDirection: "row",
     alignItems: "center",
+    flexWrap: "wrap",
     gap: 8,
   },
   title: {
     fontSize: 16,
     fontWeight: "800",
     color: colors.brand,
+    flexShrink: 1,
   },
   liveTag: {
     backgroundColor: colors.primarySoft,
@@ -387,6 +422,7 @@ const styles = StyleSheet.create({
   editRow: {
     flexDirection: "row",
     alignItems: "center",
+    flexWrap: "wrap",
     gap: 6,
     marginTop: 2,
   },
@@ -455,9 +491,14 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   stepsRowMobile: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     paddingVertical: 8,
     gap: 4,
+  },
+  stepsRowNarrow: {
+    paddingHorizontal: 6,
+    paddingVertical: 6,
+    gap: 2,
   },
   stepItem: {
     alignItems: "flex-start",
@@ -475,6 +516,9 @@ const styles = StyleSheet.create({
   stepLabelMobile: {
     fontSize: 9,
   },
+  stepLabelNarrow: {
+    fontSize: 8,
+  },
   stepVal: {
     fontSize: 15,
     fontWeight: "800",
@@ -482,14 +526,18 @@ const styles = StyleSheet.create({
   stepValMobile: {
     fontSize: 13,
   },
+  stepValNarrow: {
+    fontSize: 11,
+  },
   operator: {
     fontSize: 18,
     fontWeight: "700",
     color: colors.textMuted,
   },
   operatorMobile: {
-    fontSize: 14,
+    fontSize: 12,
     marginHorizontal: 0,
+    flexShrink: 0,
   },
   barContainer: {
     height: 24,
@@ -523,12 +571,15 @@ const styles = StyleSheet.create({
   },
   legendItems: {
     flexDirection: "row",
-    gap: 12,
+    flexWrap: "wrap",
+    gap: 10,
+    flexShrink: 1,
   },
   legendItem: {
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
+    flexShrink: 0,
   },
   legendDot: {
     width: 8,
@@ -544,5 +595,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.textSecondary,
     fontWeight: "600",
+    flexShrink: 0,
   },
 });

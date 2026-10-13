@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { colors } from "../../theme/colors";
 import { formatEuro } from "../../hooks/useForecast";
 import { ProjectionForecastResult } from "../../types/projection";
@@ -13,18 +13,23 @@ export function SmartRecommendationCard({
   forecast,
   monthlySavings,
 }: SmartRecommendationCardProps) {
+  const { width } = useWindowDimensions();
+  const isNarrow = width < 400;
+
   const isSafe = forecast.isHealthy;
   const reqMonthly = forecast.requiredMonthlySavingsForProjects;
 
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, isNarrow && styles.cardNarrow]}>
       <View style={styles.header}>
         <View style={styles.iconBadge}>
           <Text style={{ fontSize: 16 }}>🧠</Text>
         </View>
-        <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, minWidth: 0 }}>
           <View style={styles.titleRow}>
-            <Text style={styles.title}>Recommandation Intelligente NovaBudget</Text>
+            <Text style={[styles.title, isNarrow && styles.titleNarrow]} numberOfLines={1}>
+              Recommandation Intelligente NovaBudget
+            </Text>
             <View style={styles.tag}>
               <Text style={styles.tagText}>Optimisation</Text>
             </View>
@@ -83,6 +88,10 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 12,
   },
+  cardNarrow: {
+    padding: 12,
+    borderRadius: 16,
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -107,12 +116,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "800",
     color: "#6EE7B7",
+    flexShrink: 1,
+  },
+  titleNarrow: {
+    fontSize: 12,
   },
   tag: {
     backgroundColor: "rgba(16, 185, 129, 0.2)",
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
+    flexShrink: 0,
   },
   tagText: {
     fontSize: 9,
