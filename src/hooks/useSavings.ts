@@ -78,7 +78,10 @@ export function useSavings() {
 
   const handleAdd = useCallback(
     async (data: Omit<SavingsAccount, "id" | "updatedAt">) => {
-      const created = await addSavings(data);
+      const created = await addSavings(
+        data,
+        currentUserIdRef.current ?? undefined
+      );
       setAccounts((prev) => [created, ...prev]);
       return created;
     },

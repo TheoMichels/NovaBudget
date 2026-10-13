@@ -104,7 +104,8 @@ export function AddInflowModal({
                 style={styles.textInput}
                 placeholder="Ex: 3500"
                 placeholderTextColor={colors.textMuted}
-                keyboardType="numeric"
+                keyboardType="decimal-pad"
+                inputMode="decimal"
                 value={amount}
                 onChangeText={setAmount}
               />

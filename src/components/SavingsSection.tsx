@@ -137,7 +137,8 @@ export function SavingsSection({
                           style={styles.editInput}
                           value={editAmount}
                           onChangeText={setEditAmount}
-                          keyboardType="numeric"
+                          keyboardType="decimal-pad"
+                          inputMode="decimal"
                           autoFocus
                           selectTextOnFocus
                           onSubmitEditing={() => confirmEditing(acc.id)}

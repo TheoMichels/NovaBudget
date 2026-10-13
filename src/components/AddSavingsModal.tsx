@@ -21,7 +21,7 @@ interface AddSavingsModalProps {
     amount: number;
     rate: number;
     bank?: string;
-  }) => void;
+  }) => void | Promise<unknown>;
 }
 
 export function AddSavingsModal({
@@ -34,25 +34,59 @@ export function AddSavingsModal({
   const [amount, setAmount] = useState("");
   const [rate, setRate] = useState("3.0");
   const [bank, setBank] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const handleSubmit = () => {
-    if (!name.trim()) return;
-    const parsedAmount = parseFloat(amount.replace(",", ".")) || 0;
-    const parsedRate = parseFloat(rate.replace(",", ".")) || 0;
-
-    onSubmit({
-      name: name.trim(),
-      category,
-      amount: parsedAmount,
-      rate: parsedRate,
-      bank: bank.trim() || "Banque",
-    });
-
+  const resetForm = () => {
     setName("");
     setAmount("");
     setRate("3.0");
     setBank("");
+    setSubmitError(null);
+  };
+
+  const handleClose = () => {
+    if (isSubmitting) return;
+    setSubmitError(null);
     onClose();
+  };
+
+  const handleSubmit = async () => {
+    if (isSubmitting) return;
+    if (!name.trim()) {
+      setSubmitError("Veuillez renseigner un nom pour ce compte.");
+      return;
+    }
+
+    const cleanAmountStr = amount.replace(/[^\d.,]/g, "").replace(",", ".");
+    const cleanRateStr = rate.replace(/[^\d.,]/g, "").replace(",", ".");
+
+    const parsedAmount = parseFloat(cleanAmountStr);
+    const parsedRate = parseFloat(cleanRateStr);
+
+    setSubmitError(null);
+    setIsSubmitting(true);
+
+    try {
+      await onSubmit({
+        name: name.trim(),
+        category,
+        amount: isNaN(parsedAmount) ? 0 : parsedAmount,
+        rate: isNaN(parsedRate) ? 0 : parsedRate,
+        bank: bank.trim() || "Banque",
+      });
+
+      resetForm();
+      onClose();
+    } catch (err) {
+      setSubmitError(
+        err instanceof Error
+          ? err.message
+          : "Erreur lors de l'enregistrement de l'épargne"
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -60,7 +94,7 @@ export function AddSavingsModal({
       visible={visible}
       transparent
       animationType="fade"
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
     >
       <View style={styles.backdrop}>
         <View style={styles.modalCard}>
@@ -73,7 +107,8 @@ export function AddSavingsModal({
             </View>
             <Pressable
               style={[styles.closeBtn, cursorPointer]}
-              onPress={onClose}
+              onPress={handleClose}
+              disabled={isSubmitting}
               hitSlop={8}
             >
               <Text style={styles.closeBtnText}>✕</Text>
@@ -81,6 +116,12 @@ export function AddSavingsModal({
           </View>
 
           <ScrollView style={styles.form} showsVerticalScrollIndicator={false}>
+            {submitError ? (
+              <View style={styles.errorBox}>
+                <Text style={styles.errorText}>⚠️ {submitError}</Text>
+              </View>
+            ) : null}
+
             {/* Name */}
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Nom du compte</Text>
@@ -89,7 +130,11 @@ export function AddSavingsModal({
                 placeholder="Ex: Livret A BoursoBank, PEA Fortuneo..."
                 placeholderTextColor={colors.textMuted}
                 value={name}
-                onChangeText={setName}
+                onChangeText={(val) => {
+                  setName(val);
+                  if (submitError) setSubmitError(null);
+                }}
+                editable={!isSubmitting}
               />
             </View>
 
@@ -161,9 +206,14 @@ export function AddSavingsModal({
                   style={styles.textInput}
                   placeholder="Ex: 5000"
                   placeholderTextColor={colors.textMuted}
-                  keyboardType="numeric"
+                  keyboardType="decimal-pad"
+                  inputMode="decimal"
                   value={amount}
-                  onChangeText={setAmount}
+                  onChangeText={(val) => {
+                    setAmount(val);
+                    if (submitError) setSubmitError(null);
+                  }}
+                  editable={!isSubmitting}
                 />
               </View>
 
@@ -173,9 +223,14 @@ export function AddSavingsModal({
                   style={styles.textInput}
                   placeholder="Ex: 3.0"
                   placeholderTextColor={colors.textMuted}
-                  keyboardType="numeric"
+                  keyboardType="decimal-pad"
+                  inputMode="decimal"
                   value={rate}
-                  onChangeText={setRate}
+                  onChangeText={(val) => {
+                    setRate(val);
+                    if (submitError) setSubmitError(null);
+                  }}
+                  editable={!isSubmitting}
                 />
               </View>
             </View>
@@ -188,7 +243,11 @@ export function AddSavingsModal({
                 placeholder="Ex: BoursoBank, BNP, Fortuneo..."
                 placeholderTextColor={colors.textMuted}
                 value={bank}
-                onChangeText={setBank}
+                onChangeText={(val) => {
+                  setBank(val);
+                  if (submitError) setSubmitError(null);
+                }}
+                editable={!isSubmitting}
               />
             </View>
           </ScrollView>
@@ -196,17 +255,29 @@ export function AddSavingsModal({
           {/* Action buttons */}
           <View style={styles.modalActions}>
             <Pressable
-              style={[styles.cancelBtn, cursorPointer]}
-              onPress={onClose}
+              style={[
+                styles.cancelBtn,
+                cursorPointer,
+                isSubmitting && styles.btnDisabled,
+              ]}
+              onPress={handleClose}
+              disabled={isSubmitting}
             >
               <Text style={styles.cancelBtnText}>Annuler</Text>
             </Pressable>
 
             <Pressable
-              style={[styles.submitBtn, cursorPointer]}
+              style={[
+                styles.submitBtn,
+                cursorPointer,
+                isSubmitting && styles.btnDisabled,
+              ]}
               onPress={handleSubmit}
+              disabled={isSubmitting}
             >
-              <Text style={styles.submitBtnText}>Enregistrer</Text>
+              <Text style={styles.submitBtnText}>
+                {isSubmitting ? "Enregistrement..." : "Enregistrer"}
+              </Text>
             </Pressable>
           </View>
         </View>
@@ -346,5 +417,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     color: "#FFFFFF",
+  },
+  btnDisabled: {
+    opacity: 0.6,
+  },
+  errorBox: {
+    backgroundColor: "rgba(239, 68, 68, 0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(239, 68, 68, 0.25)",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 12,
+  },
+  errorText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#DC2626",
   },
 });
