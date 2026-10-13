@@ -53,7 +53,7 @@ export function ProjectionKpiCards({
     <View style={[styles.container, isMobile && styles.containerMobile]}>
       {/* Top Controller Bar: Title + Horizon Selector */}
       <View style={styles.topBar}>
-        <View style={[styles.titleBlock, isNarrow && styles.titleBlockNarrow]}>
+        <View style={[styles.titleBlock, isMobile && styles.titleBlockMobile]}>
           <View style={styles.badgeRow}>
             <View style={styles.pulseDot} />
             <Text style={styles.badgeText}>SIMULATEUR PROSPECTIF</Text>
@@ -106,7 +106,14 @@ export function ProjectionKpiCards({
       {/* 4 Metrics Grid */}
       <View style={styles.grid}>
         {/* 1. Épargne Projetée */}
-        <View style={[styles.card, styles.cardFinal, isNarrow && styles.cardNarrow]}>
+        <View
+          style={[
+            styles.card,
+            isMobile && styles.cardMobile,
+            isNarrow && styles.cardNarrow,
+            styles.cardFinal,
+          ]}
+        >
           <View style={styles.cardHeader}>
             <Text style={styles.cardLabel} numberOfLines={1}>Épargne Projetée</Text>
             <View style={[styles.iconCircle, { backgroundColor: colors.primarySoft }]}>
@@ -116,7 +123,11 @@ export function ProjectionKpiCards({
 
           <View style={styles.amountRow}>
             <Text
-              style={[styles.amountText, isNarrow && styles.amountTextNarrow]}
+              style={[
+                styles.amountText,
+                isMobile && styles.amountTextMobile,
+                isNarrow && styles.amountTextNarrow,
+              ]}
               numberOfLines={1}
               adjustsFontSizeToFit
             >
@@ -158,7 +169,14 @@ export function ProjectionKpiCards({
         </View>
 
         {/* 2. Épargne Programmée */}
-        <View style={[styles.card, styles.cardMonthly, isNarrow && styles.cardNarrow]}>
+        <View
+          style={[
+            styles.card,
+            isMobile && styles.cardMobile,
+            isNarrow && styles.cardNarrow,
+            styles.cardMonthly,
+          ]}
+        >
           <View style={styles.cardHeader}>
             <Text
               style={[styles.cardLabel, { color: colors.inflow }]}
@@ -176,6 +194,7 @@ export function ProjectionKpiCards({
               style={[
                 styles.amountText,
                 { color: colors.brand },
+                isMobile && styles.amountTextMobile,
                 isNarrow && styles.amountTextNarrow,
               ]}
               numberOfLines={1}
@@ -208,7 +227,14 @@ export function ProjectionKpiCards({
         </View>
 
         {/* 3. Intérêts Composés */}
-        <View style={[styles.card, styles.cardInterest, isNarrow && styles.cardNarrow]}>
+        <View
+          style={[
+            styles.card,
+            isMobile && styles.cardMobile,
+            isNarrow && styles.cardNarrow,
+            styles.cardInterest,
+          ]}
+        >
           <View style={styles.cardHeader}>
             <Text
               style={[styles.cardLabel, { color: colors.primary }]}
@@ -226,6 +252,7 @@ export function ProjectionKpiCards({
               style={[
                 styles.amountText,
                 { color: colors.primary },
+                isMobile && styles.amountTextMobile,
                 isNarrow && styles.amountTextNarrow,
               ]}
               numberOfLines={1}
@@ -247,7 +274,14 @@ export function ProjectionKpiCards({
         </View>
 
         {/* 4. Apports Projets Déduits */}
-        <View style={[styles.card, styles.cardProjects, isNarrow && styles.cardNarrow]}>
+        <View
+          style={[
+            styles.card,
+            isMobile && styles.cardMobile,
+            isNarrow && styles.cardNarrow,
+            styles.cardProjects,
+          ]}
+        >
           <View style={styles.cardHeader}>
             <Text
               style={[styles.cardLabel, { color: colors.warning }]}
@@ -265,6 +299,7 @@ export function ProjectionKpiCards({
               style={[
                 styles.amountText,
                 { color: "#92400E" },
+                isMobile && styles.amountTextMobile,
                 isNarrow && styles.amountTextNarrow,
               ]}
               numberOfLines={1}
@@ -290,13 +325,13 @@ export function ProjectionKpiCards({
 
       {/* Cushion Safety Banner */}
       <View style={styles.safetyBanner}>
-        <View style={[styles.safetyLeft, isNarrow && styles.safetyLeftNarrow]}>
+        <View style={[styles.safetyLeft, isMobile && styles.safetyLeftMobile]}>
           <View style={styles.shieldBadge}>
             <Text style={{ fontSize: 16 }}>🛡️</Text>
           </View>
           <View style={{ flex: 1, minWidth: 0 }}>
             <View style={styles.safetyTitleRow}>
-              <Text style={styles.safetyTitle} numberOfLines={1}>
+              <Text style={styles.safetyTitle}>
                 {forecast.isHealthy
                   ? "Matelas de Sécurité Intact"
                   : "Attention : Coussin de Sécurité Entamé"}
@@ -348,6 +383,7 @@ export function ProjectionKpiCards({
         <View
           style={[
             styles.statusTag,
+            isMobile && styles.statusTagMobile,
             forecast.isHealthy ? styles.statusTagSafe : styles.statusTagDanger,
           ]}
         >
@@ -393,6 +429,9 @@ const styles = StyleSheet.create({
   titleBlock: {
     flex: 1,
     minWidth: 260,
+  },
+  titleBlockMobile: {
+    minWidth: "100%",
   },
   titleBlockNarrow: {
     minWidth: "100%",
@@ -497,8 +536,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
+  cardMobile: {
+    minWidth: 140,
+    padding: 12,
+  },
   cardNarrow: {
-    minWidth: 130,
+    minWidth: "100%",
     padding: 12,
   },
   cardFinal: {
@@ -549,8 +592,11 @@ const styles = StyleSheet.create({
     letterSpacing: -0.4,
     flexShrink: 1,
   },
+  amountTextMobile: {
+    fontSize: 19,
+  },
   amountTextNarrow: {
-    fontSize: 18,
+    fontSize: 17,
   },
   pillDiff: {
     paddingHorizontal: 6,
@@ -588,7 +634,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   footerNoteValue: {
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: "700",
     flexShrink: 0,
   },
@@ -611,6 +657,9 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
+  safetyLeftMobile: {
+    minWidth: "100%",
+  },
   safetyLeftNarrow: {
     minWidth: "100%",
   },
@@ -632,6 +681,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "800",
     color: colors.brand,
+    flexShrink: 1,
   },
   cushionPill: {
     paddingHorizontal: 8,
@@ -659,6 +709,10 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 10,
     borderWidth: 1,
+  },
+  statusTagMobile: {
+    alignSelf: "flex-start",
+    maxWidth: "100%",
   },
   statusTagSafe: {
     backgroundColor: colors.primarySoft,

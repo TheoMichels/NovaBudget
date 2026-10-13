@@ -128,7 +128,7 @@ export function ExpensesSection({
                         hitSlop={4}
                       >
                         <Text style={styles.dateText} numberOfLines={1}>
-                          📅 {formatFrenchMonthYear(exp.targetDate, "full")}
+                          📅 {formatFrenchMonthYear(exp.targetDate, isMobile ? "short" : "full")}
                         </Text>
                         {onUpdateDate && (
                           <Text style={styles.dateEditPencil}>✎</Text>

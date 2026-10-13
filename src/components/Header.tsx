@@ -35,6 +35,7 @@ export function Header({
 }: HeaderProps) {
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
+  const isNarrow = width < 400;
   const { user, signOut } = useAuth();
   const [isAuthModalVisible, setIsAuthModalVisible] = useState(false);
 
@@ -66,9 +67,9 @@ export function Header({
           resizeMode="cover"
         />
       </View>
-      <View>
-        <Text style={styles.brandTitle}>NovaBudget</Text>
-        <Text style={styles.brandSubtitle}>Épargne & Prévisions</Text>
+      <View style={{ flexShrink: 1 }}>
+        <Text style={styles.brandTitle} numberOfLines={1}>NovaBudget</Text>
+        <Text style={styles.brandSubtitle} numberOfLines={1}>Épargne & Prévisions</Text>
       </View>
     </View>
   );
@@ -109,7 +110,7 @@ export function Header({
             activeTab === "projections" && styles.tabBtnTextActive,
           ]}
         >
-          🚀 Projections & Projets
+          🚀 Projections
         </Text>
       </Pressable>
     </View>
@@ -124,7 +125,13 @@ export function Header({
         accessibilityRole="button"
         accessibilityLabel="Gérer mon compte et synchronisation"
       >
-        <Text style={styles.cloudBadgeText} numberOfLines={1}>
+        <Text
+          style={[
+            styles.cloudBadgeText,
+            isMobile && (isNarrow ? styles.cloudBadgeTextNarrow : styles.cloudBadgeTextMobile),
+          ]}
+          numberOfLines={1}
+        >
           {userDisplayLabel}
         </Text>
       </Pressable>
@@ -203,11 +210,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    gap: 8,
   },
   brandRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
+    flexShrink: 1,
   },
   logoBadge: {
     width: 38,
@@ -238,10 +247,11 @@ const styles = StyleSheet.create({
   actionsRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 8,
+    flexShrink: 0,
   },
   cloudBadge: {
-    paddingHorizontal: 11,
+    paddingHorizontal: 10,
     paddingVertical: 7,
     borderRadius: 12,
     borderWidth: 1,
@@ -256,6 +266,12 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: colors.primary,
     maxWidth: 160,
+  },
+  cloudBadgeTextMobile: {
+    maxWidth: 100,
+  },
+  cloudBadgeTextNarrow: {
+    maxWidth: 80,
   },
   btnSignOut: {
     backgroundColor: "rgba(220, 38, 38, 0.08)",

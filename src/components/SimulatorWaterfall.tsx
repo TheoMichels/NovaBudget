@@ -77,7 +77,7 @@ export function SimulatorWaterfall({
       <View style={styles.headerRow}>
         <View style={{ flex: 1, minWidth: isNarrow ? "100%" : 220 }}>
           <View style={styles.titleRow}>
-            <Text style={styles.title}>Simulation Prévisionnelle d'Épargne</Text>
+            <Text style={[styles.title, isMobile && styles.titleMobile]}>Simulation Prévisionnelle d'Épargne</Text>
             <View style={styles.liveTag}>
               <Text style={styles.liveTagText}>Temps Réel</Text>
             </View>
@@ -172,9 +172,9 @@ export function SimulatorWaterfall({
               isMobile && styles.stepLabelMobile,
               isNarrow && styles.stepLabelNarrow,
             ]}
-            numberOfLines={1}
+            numberOfLines={2}
           >
-            Épargne départ
+            {isNarrow ? "Départ" : "Épargne départ"}
           </Text>
           <Text
             style={[
@@ -199,9 +199,9 @@ export function SimulatorWaterfall({
               isMobile && styles.stepLabelMobile,
               isNarrow && styles.stepLabelNarrow,
             ]}
-            numberOfLines={1}
+            numberOfLines={2}
           >
-            Dépenses engagées
+            {isMobile ? "Dépenses" : "Dépenses engagées"}
           </Text>
           <Text
             style={[
@@ -226,9 +226,9 @@ export function SimulatorWaterfall({
               isMobile && styles.stepLabelMobile,
               isNarrow && styles.stepLabelNarrow,
             ]}
-            numberOfLines={1}
+            numberOfLines={2}
           >
-            Épargne résiduelle
+            {isMobile ? "Résiduel" : "Épargne résiduelle"}
           </Text>
           <Text
             style={[
@@ -365,6 +365,9 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: colors.brand,
     flexShrink: 1,
+  },
+  titleMobile: {
+    fontSize: 14,
   },
   liveTag: {
     backgroundColor: colors.primarySoft,
@@ -514,10 +517,12 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   stepLabelMobile: {
-    fontSize: 9,
+    fontSize: 9.5,
+    lineHeight: 12,
   },
   stepLabelNarrow: {
-    fontSize: 8,
+    fontSize: 8.5,
+    lineHeight: 11,
   },
   stepVal: {
     fontSize: 15,
