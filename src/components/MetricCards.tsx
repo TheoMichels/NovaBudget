@@ -27,10 +27,11 @@ export function MetricCards({
 }: MetricCardsProps) {
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
+  const isNarrow = width < 400;
 
   const responsiveCardStyle: ViewStyle = {
     width: isMobile ? "100%" : undefined,
-    minWidth: isMobile ? "100%" : 260,
+    minWidth: isMobile ? 0 : 260,
   };
 
   return (
@@ -45,14 +46,24 @@ export function MetricCards({
         ]}
       >
         <View style={styles.cardHeader}>
-          <Text style={styles.cardLabel}>Épargne Actuelle</Text>
+          <Text style={styles.cardLabel} numberOfLines={1}>
+            Épargne Actuelle
+          </Text>
           <View style={[styles.iconCircle, { backgroundColor: colors.primarySoft }]}>
             <Text style={{ fontSize: 13 }}>💰</Text>
           </View>
         </View>
 
         <View style={styles.amountRow}>
-          <Text style={[styles.amountText, isMobile && styles.amountTextMobile]}>
+          <Text
+            style={[
+              styles.amountText,
+              isMobile && styles.amountTextMobile,
+              isNarrow && styles.amountTextNarrow,
+            ]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+          >
             {formatEuro(totalSavings)}
           </Text>
           <View style={styles.pillGreen}>
@@ -78,7 +89,10 @@ export function MetricCards({
         ]}
       >
         <View style={styles.cardHeader}>
-          <Text style={[styles.cardLabel, { color: colors.warning }]}>
+          <Text
+            style={[styles.cardLabel, { color: colors.warning }]}
+            numberOfLines={1}
+          >
             Dépenses Prévues
           </Text>
           <View style={[styles.iconCircle, { backgroundColor: colors.warningSoft }]}>
@@ -92,7 +106,10 @@ export function MetricCards({
               styles.amountText,
               { color: "#92400E" },
               isMobile && styles.amountTextMobile,
+              isNarrow && styles.amountTextNarrow,
             ]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
           >
             {totalActiveExpenses > 0
               ? `-${formatEuro(totalActiveExpenses)}`
@@ -121,7 +138,10 @@ export function MetricCards({
         ]}
       >
         <View style={styles.cardHeader}>
-          <Text style={[styles.cardLabel, { color: colors.primary }]}>
+          <Text
+            style={[styles.cardLabel, { color: colors.primary }]}
+            numberOfLines={1}
+          >
             Épargne Prévisionnelle
           </Text>
           <View style={[styles.iconCircle, { backgroundColor: colors.primary }]}>
@@ -135,7 +155,10 @@ export function MetricCards({
               styles.amountText,
               { color: colors.primary },
               isMobile && styles.amountTextMobile,
+              isNarrow && styles.amountTextNarrow,
             ]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
           >
             {formatEuro(postTotalSavings)}
           </Text>
@@ -189,6 +212,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     marginBottom: 8,
+    gap: 8,
   },
   cardLabel: {
     fontSize: 12,
@@ -196,6 +220,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textTransform: "uppercase",
     letterSpacing: 0.5,
+    flexShrink: 1,
   },
   iconCircle: {
     width: 28,
@@ -207,7 +232,8 @@ const styles = StyleSheet.create({
   amountRow: {
     flexDirection: "row",
     alignItems: "baseline",
-    gap: 10,
+    flexWrap: "wrap",
+    gap: 8,
     marginBottom: 16,
   },
   amountText: {
@@ -215,9 +241,14 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: colors.brand,
     letterSpacing: -0.5,
+    flexShrink: 1,
   },
   amountTextMobile: {
-    fontSize: 23,
+    fontSize: 22,
+    letterSpacing: -0.5,
+  },
+  amountTextNarrow: {
+    fontSize: 20,
     letterSpacing: -0.5,
   },
   pillGreen: {
@@ -257,6 +288,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    flexWrap: "wrap",
+    gap: 6,
     borderTopWidth: 1,
     borderTopColor: colors.divider,
     paddingTop: 12,
@@ -265,11 +298,13 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.textMuted,
     fontWeight: "500",
+    flexShrink: 1,
   },
   footerNoteValue: {
     fontSize: 12,
     color: colors.brand,
     fontWeight: "700",
+    flexShrink: 0,
   },
   cardSubtext: {
     borderTopWidth: 1,

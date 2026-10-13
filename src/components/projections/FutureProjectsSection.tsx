@@ -40,6 +40,7 @@ export function FutureProjectsSection({
 }: FutureProjectsSectionProps) {
   const { width } = useWindowDimensions();
   const isMobile = width < 600;
+  const isNarrow = width < 400;
   const activeProjects = projects.filter((p) => p.isActive);
   const totalActive = activeProjects.reduce(
     (sum, p) => sum + (Number(p.amount) || 0),
@@ -49,9 +50,9 @@ export function FutureProjectsSection({
   return (
     <View style={[styles.container, isMobile && styles.containerMobile]}>
       <View style={styles.headerRow}>
-        <View>
+        <View style={{ flex: 1, minWidth: isNarrow ? "100%" : 200 }}>
           <View style={styles.titleRow}>
-            <Text style={styles.title}>3. Projets Futurs & Décaissements</Text>
+            <Text style={styles.title} numberOfLines={1}>3. Projets Futurs & Décaissements</Text>
             <View style={styles.countBadge}>
               <Text style={styles.countBadgeText}>
                 {activeProjects.length} planifié{activeProjects.length > 1 ? "s" : ""}
@@ -98,16 +99,27 @@ export function FutureProjectsSection({
                 style={[
                   styles.card,
                   !proj.isActive && styles.cardInactive,
+                  isNarrow && styles.cardNarrow,
                 ]}
               >
                 {/* Main Card Header */}
-                <View style={styles.cardMainRow}>
-                  <View style={styles.cardHeaderLeft}>
+                <View
+                  style={[
+                    styles.cardMainRow,
+                    isMobile && styles.cardMainRowMobile,
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.cardHeaderLeft,
+                      isMobile && styles.cardHeaderLeftMobile,
+                    ]}
+                  >
                     <View style={styles.iconBox}>
                       <Text style={{ fontSize: 18 }}>{icon}</Text>
                     </View>
 
-                    <View style={{ flex: 1 }}>
+                    <View style={{ flex: 1, minWidth: 0 }}>
                       <View style={styles.titleRowItem}>
                         <Text
                           style={[
@@ -129,44 +141,53 @@ export function FutureProjectsSection({
                     </View>
                   </View>
 
-                  <View style={styles.cardHeaderRight}>
+                  <View
+                    style={[
+                      styles.cardHeaderRight,
+                      isMobile && styles.cardHeaderRightMobile,
+                    ]}
+                  >
                     <Text
                       style={[
                         styles.itemAmount,
                         !proj.isActive && styles.itemAmountInactive,
                       ]}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
                     >
                       -{formatEuro(proj.amount)}
                     </Text>
 
-                    <Pressable
-                      style={[
-                        styles.toggleBtn,
-                        cursorPointer,
-                        proj.isActive ? styles.toggleBtnActive : styles.toggleBtnPaused,
-                      ]}
-                      onPress={() => onToggleActive(proj.id)}
-                    >
-                      <Text
+                    <View style={styles.actionsCluster}>
+                      <Pressable
                         style={[
-                          styles.toggleBtnText,
-                          proj.isActive
-                            ? styles.toggleBtnTextActive
-                            : styles.toggleBtnTextPaused,
+                          styles.toggleBtn,
+                          cursorPointer,
+                          proj.isActive ? styles.toggleBtnActive : styles.toggleBtnPaused,
                         ]}
+                        onPress={() => onToggleActive(proj.id)}
                       >
-                        {proj.isActive ? "Inclus" : "Pause"}
-                      </Text>
-                    </Pressable>
+                        <Text
+                          style={[
+                            styles.toggleBtnText,
+                            proj.isActive
+                              ? styles.toggleBtnTextActive
+                              : styles.toggleBtnTextPaused,
+                          ]}
+                        >
+                          {proj.isActive ? "Inclus" : "Pause"}
+                        </Text>
+                      </Pressable>
 
-                    <Pressable
-                      style={[styles.btnDelete, cursorPointer]}
-                      onPress={() => onRemove(proj.id)}
-                      hitSlop={8}
-                      accessibilityLabel="Supprimer"
-                    >
-                      <Text style={styles.btnDeleteText}>✕</Text>
-                    </Pressable>
+                      <Pressable
+                        style={[styles.btnDelete, cursorPointer]}
+                        onPress={() => onRemove(proj.id)}
+                        hitSlop={8}
+                        accessibilityLabel="Supprimer"
+                      >
+                        <Text style={styles.btnDeleteText}>✕</Text>
+                      </Pressable>
+                    </View>
                   </View>
                 </View>
 
@@ -245,17 +266,20 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     justifyContent: "space-between",
-    gap: 12,
+    flexWrap: "wrap",
+    gap: 10,
   },
   titleRow: {
     flexDirection: "row",
     alignItems: "center",
+    flexWrap: "wrap",
     gap: 8,
   },
   title: {
     fontSize: 15,
     fontWeight: "800",
     color: colors.brand,
+    flexShrink: 1,
   },
   countBadge: {
     backgroundColor: colors.warningSoft,
@@ -329,6 +353,9 @@ const styles = StyleSheet.create({
     gap: 10,
     ...shadows.sm,
   },
+  cardNarrow: {
+    padding: 10,
+  },
   cardInactive: {
     opacity: 0.55,
     backgroundColor: "rgba(255, 255, 255, 0.5)",
@@ -339,6 +366,11 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 8,
   },
+  cardMainRowMobile: {
+    flexDirection: "column",
+    alignItems: "stretch",
+    gap: 8,
+  },
   cardHeaderLeft: {
     flexDirection: "row",
     alignItems: "center",
@@ -346,6 +378,9 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     flexShrink: 1,
+  },
+  cardHeaderLeftMobile: {
+    width: "100%",
   },
   iconBox: {
     width: 38,
@@ -365,6 +400,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "800",
     color: colors.brand,
+    flexShrink: 1,
   },
   itemTitleInactive: {
     textDecorationLine: "line-through",
@@ -392,6 +428,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 6,
     flexShrink: 0,
+  },
+  cardHeaderRightMobile: {
+    width: "100%",
+    justifyContent: "space-between",
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(15, 41, 34, 0.06)",
+  },
+  actionsCluster: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
   },
   itemAmount: {
     fontSize: 14,

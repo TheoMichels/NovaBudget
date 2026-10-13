@@ -7,6 +7,7 @@ import {
   Text,
   View,
   ViewStyle,
+  useWindowDimensions,
 } from "react-native";
 import { colors, shadows } from "../theme/colors";
 import { cursorPointer } from "../theme/webCursor";
@@ -30,6 +31,10 @@ export function ExpensesSection({
   onRemove,
   onUpdateDate,
 }: ExpensesSectionProps) {
+  const { width } = useWindowDimensions();
+  const isMobile = width < 768;
+  const isNarrow = width < 400;
+
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [tempDate, setTempDate] = useState<string>("");
 
@@ -50,7 +55,7 @@ export function ExpensesSection({
     <View style={styles.container}>
       <View style={styles.headerRow}>
         <View style={styles.titleGroup}>
-          <Text style={styles.title}>Dépenses Importantes</Text>
+          <Text style={styles.title} numberOfLines={1}>Dépenses Importantes</Text>
           <View style={styles.countBadge}>
             <Text style={styles.countText}>
               {expenses.length} projet{expenses.length > 1 ? "s" : ""}
@@ -79,6 +84,7 @@ export function ExpensesSection({
                 style={[
                   styles.card,
                   !exp.isActive && styles.cardInactive,
+                  isNarrow && styles.cardNarrow,
                 ]}
               >
                 {/* Left side: Checkbox + details */}
@@ -121,7 +127,7 @@ export function ExpensesSection({
                         onPress={() => handleOpenDateEdit(exp)}
                         hitSlop={4}
                       >
-                        <Text style={styles.dateText}>
+                        <Text style={styles.dateText} numberOfLines={1}>
                           📅 {formatFrenchMonthYear(exp.targetDate, "full")}
                         </Text>
                         {onUpdateDate && (
@@ -139,7 +145,10 @@ export function ExpensesSection({
                       style={[
                         styles.amountVal,
                         !exp.isActive && styles.amountValInactive,
+                        isNarrow && styles.amountValNarrow,
                       ]}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
                     >
                       -{formatEuro(exp.amount)}
                     </Text>
@@ -181,7 +190,7 @@ export function ExpensesSection({
           onRequestClose={() => setEditingExpense(null)}
         >
           <View style={styles.modalBackdrop}>
-            <View style={styles.modalCard}>
+            <View style={[styles.modalCard, isNarrow && styles.modalCardNarrow]}>
               <View style={styles.modalHeader}>
                 <View style={{ flex: 1, paddingRight: 8 }}>
                   <Text style={styles.modalTitle}>Modifier l'échéance</Text>
@@ -234,16 +243,22 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    flexWrap: "wrap",
+    gap: 8,
   },
   titleGroup: {
     flexDirection: "row",
     alignItems: "center",
+    flexWrap: "wrap",
     gap: 8,
+    flexShrink: 1,
+    minWidth: 0,
   },
   title: {
     fontSize: 16,
     fontWeight: "800",
     color: colors.brand,
+    flexShrink: 1,
   },
   countBadge: {
     backgroundColor: colors.warningSoft,
@@ -283,6 +298,10 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 8,
     ...shadows.sm,
+  },
+  cardNarrow: {
+    padding: 10,
+    gap: 6,
   },
   cardInactive: {
     opacity: 0.5,
@@ -385,6 +404,9 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: "#92400E",
   },
+  amountValNarrow: {
+    fontSize: 13,
+  },
   amountValInactive: {
     color: colors.textMuted,
   },
@@ -459,10 +481,16 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     ...shadows.lg,
   },
+  modalCardNarrow: {
+    padding: 14,
+    borderRadius: 18,
+  },
   modalHeader: {
     flexDirection: "row",
     alignItems: "flex-start",
     justifyContent: "space-between",
+    flexWrap: "wrap",
+    gap: 8,
     marginBottom: 16,
   },
   modalTitle: {

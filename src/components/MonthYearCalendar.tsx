@@ -4,6 +4,7 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from "react-native";
 import { colors, shadows } from "../theme/colors";
 import { cursorPointer } from "../theme/webCursor";
@@ -32,6 +33,9 @@ export function MonthYearCalendar({
   maxYear = 2035,
   showPresets = true,
 }: MonthYearCalendarProps) {
+  const { width } = useWindowDimensions();
+  const isNarrow = width < 400;
+
   const { year: selectedYear, month: selectedMonth } = parseYearMonth(value);
   const [viewYear, setViewYear] = useState<number>(selectedYear);
 
@@ -308,10 +312,11 @@ const styles = StyleSheet.create({
   quickYearsRow: {
     flexDirection: "row",
     justifyContent: "center",
+    flexWrap: "wrap",
     gap: 6,
   },
   quickYearChip: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
     backgroundColor: "rgba(15, 41, 34, 0.04)",
@@ -340,9 +345,9 @@ const styles = StyleSheet.create({
   },
   monthCell: {
     width: "23%",
-    minWidth: 62,
-    paddingVertical: 8,
-    paddingHorizontal: 4,
+    minWidth: 48,
+    paddingVertical: 7,
+    paddingHorizontal: 2,
     borderRadius: 12,
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
@@ -365,7 +370,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   monthShortName: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "700",
     color: colors.brand,
   },
@@ -424,6 +429,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    flexWrap: "wrap",
+    gap: 6,
     backgroundColor: "#FFFFFF",
     paddingHorizontal: 10,
     paddingVertical: 7,
@@ -435,6 +442,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
+    flexShrink: 1,
+    minWidth: 0,
   },
   summaryIcon: {
     fontSize: 13,
@@ -443,6 +452,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "800",
     color: colors.brand,
+    flexShrink: 1,
   },
   relativeBadge: {
     backgroundColor: colors.warningSoft,

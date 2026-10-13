@@ -29,15 +29,16 @@ export function InflowsSection({
 }: InflowsSectionProps) {
   const { width } = useWindowDimensions();
   const isMobile = width < 600;
+  const isNarrow = width < 400;
   const activeInflows = inflows.filter((i) => i.isActive);
   const totalActive = activeInflows.reduce((sum, i) => sum + (Number(i.amount) || 0), 0);
 
   return (
     <View style={[styles.container, isMobile && styles.containerMobile]}>
       <View style={styles.headerRow}>
-        <View>
+        <View style={{ flex: 1, minWidth: isNarrow ? "100%" : 200 }}>
           <View style={styles.titleRow}>
-            <Text style={styles.title}>2. Rentrées Exceptionnelles</Text>
+            <Text style={styles.title} numberOfLines={1}>2. Rentrées Exceptionnelles</Text>
             <View style={styles.countBadge}>
               <Text style={styles.countBadgeText}>
                 {activeInflows.length} active{activeInflows.length > 1 ? "s" : ""}
@@ -81,6 +82,7 @@ export function InflowsSection({
                 style={[
                   styles.card,
                   !inf.isActive && styles.cardInactive,
+                  isNarrow && styles.cardNarrow,
                 ]}
               >
                 <View style={styles.cardLeft}>
@@ -98,7 +100,7 @@ export function InflowsSection({
                     )}
                   </Pressable>
 
-                  <View style={{ flex: 1 }}>
+                  <View style={{ flex: 1, minWidth: 0 }}>
                     <View style={styles.itemTitleRow}>
                       <Text
                         style={[
@@ -131,6 +133,8 @@ export function InflowsSection({
                       styles.itemAmount,
                       !inf.isActive && styles.itemAmountInactive,
                     ]}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
                   >
                     +{formatEuro(inf.amount)}
                   </Text>
@@ -172,17 +176,20 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     justifyContent: "space-between",
-    gap: 12,
+    flexWrap: "wrap",
+    gap: 10,
   },
   titleRow: {
     flexDirection: "row",
     alignItems: "center",
+    flexWrap: "wrap",
     gap: 8,
   },
   title: {
     fontSize: 15,
     fontWeight: "800",
     color: colors.brand,
+    flexShrink: 1,
   },
   countBadge: {
     backgroundColor: colors.inflowSoft,
@@ -258,6 +265,10 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 8,
     ...shadows.sm,
+  },
+  cardNarrow: {
+    padding: 10,
+    gap: 6,
   },
   cardInactive: {
     opacity: 0.55,
