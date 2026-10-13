@@ -1,5 +1,15 @@
 import React, { useEffect, useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  TextStyle,
+  View,
+  ViewStyle,
+  useWindowDimensions,
+} from "react-native";
 import { colors, shadows } from "../theme/colors";
 import { cursorPointer } from "../theme/webCursor";
 import { formatEuro } from "../hooks/useForecast";
@@ -27,6 +37,10 @@ export function SimulatorWaterfall({
   safetyCushionTarget,
   onUpdateSafetyCushionTarget,
 }: SimulatorWaterfallProps) {
+  const { width } = useWindowDimensions();
+  const isMobile = width < 600;
+  const isNarrow = width < 420;
+
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(String(safetyCushionTarget));
 
@@ -59,9 +73,9 @@ export function SimulatorWaterfall({
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isMobile && styles.containerMobile]}>
       <View style={styles.headerRow}>
-        <View>
+        <View style={{ flex: 1, minWidth: isNarrow ? "100%" : 220 }}>
           <View style={styles.titleRow}>
             <Text style={styles.title}>Simulation Prévisionnelle d'Épargne</Text>
             <View style={styles.liveTag}>
@@ -74,7 +88,13 @@ export function SimulatorWaterfall({
         </View>
 
         {isEditing ? (
-          <View style={[styles.cushionTargetBox, styles.cushionTargetBoxEditing]}>
+          <View
+            style={[
+              styles.cushionTargetBox,
+              styles.cushionTargetBoxEditing,
+              isNarrow && styles.cushionTargetBoxNarrow,
+            ]}
+          >
             <Text style={styles.cushionTargetLabel}>Seuil de sécurité :</Text>
             <View style={styles.editRow}>
               <View style={styles.editInputWrapper}>
@@ -117,6 +137,7 @@ export function SimulatorWaterfall({
           <Pressable
             style={[
               styles.cushionTargetBox,
+              isNarrow && styles.cushionTargetBoxNarrow,
               onUpdateSafetyCushionTarget && cursorPointer,
             ]}
             onPress={handleStartEdit}
@@ -137,24 +158,55 @@ export function SimulatorWaterfall({
       </View>
 
       {/* Numerical Waterfall summary */}
-      <View style={styles.stepsRow}>
-        <View>
-          <Text style={styles.stepLabel}>Épargne de départ</Text>
-          <Text style={[styles.stepVal, { color: colors.brand }]}>
+      <View style={[styles.stepsRow, isMobile && styles.stepsRowMobile]}>
+        <View style={[styles.stepItem, isMobile && styles.stepItemMobile]}>
+          <Text style={[styles.stepLabel, isMobile && styles.stepLabelMobile]} numberOfLines={1}>
+            Épargne départ
+          </Text>
+          <Text
+            style={[
+              styles.stepVal,
+              { color: colors.brand },
+              isMobile && styles.stepValMobile,
+            ]}
+            numberOfLines={1}
+          >
             {formatEuro(initialSavings)}
           </Text>
         </View>
-        <Text style={styles.operator}>-</Text>
-        <View>
-          <Text style={styles.stepLabel}>Dépenses engagées</Text>
-          <Text style={[styles.stepVal, { color: "#92400E" }]}>
+
+        <Text style={[styles.operator, isMobile && styles.operatorMobile]}>-</Text>
+
+        <View style={[styles.stepItem, isMobile && styles.stepItemMobile]}>
+          <Text style={[styles.stepLabel, isMobile && styles.stepLabelMobile]} numberOfLines={1}>
+            Dépenses engagées
+          </Text>
+          <Text
+            style={[
+              styles.stepVal,
+              { color: "#92400E" },
+              isMobile && styles.stepValMobile,
+            ]}
+            numberOfLines={1}
+          >
             {expensesAmount > 0 ? `-${formatEuro(expensesAmount)}` : "0 €"}
           </Text>
         </View>
-        <Text style={styles.operator}>=</Text>
-        <View>
-          <Text style={styles.stepLabel}>Épargne résiduelle</Text>
-          <Text style={[styles.stepVal, { color: colors.primary }]}>
+
+        <Text style={[styles.operator, isMobile && styles.operatorMobile]}>=</Text>
+
+        <View style={[styles.stepItem, isMobile && styles.stepItemMobile]}>
+          <Text style={[styles.stepLabel, isMobile && styles.stepLabelMobile]} numberOfLines={1}>
+            Épargne résiduelle
+          </Text>
+          <Text
+            style={[
+              styles.stepVal,
+              { color: colors.primary },
+              isMobile && styles.stepValMobile,
+            ]}
+            numberOfLines={1}
+          >
             {formatEuro(residualSavings)}
           </Text>
         </View>
@@ -169,9 +221,15 @@ export function SimulatorWaterfall({
               { width: `${cushionPct}%`, backgroundColor: colors.primary },
             ]}
           >
-            <Text style={styles.barText} numberOfLines={1}>
-              Sécurité ({cushionPct}%)
-            </Text>
+            {cushionPct >= (isMobile ? 24 : 16) ? (
+              <Text style={styles.barText} numberOfLines={1}>
+                Sécurité ({cushionPct}%)
+              </Text>
+            ) : cushionPct >= 12 ? (
+              <Text style={styles.barText} numberOfLines={1}>
+                {cushionPct}%
+              </Text>
+            ) : null}
           </View>
         )}
         {freePct > 0 && (
@@ -181,9 +239,15 @@ export function SimulatorWaterfall({
               { width: `${freePct}%`, backgroundColor: "#34D399" },
             ]}
           >
-            <Text style={[styles.barText, { color: colors.brand }]} numberOfLines={1}>
-              Confort ({freePct}%)
-            </Text>
+            {freePct >= (isMobile ? 24 : 16) ? (
+              <Text style={[styles.barText, { color: colors.brand }]} numberOfLines={1}>
+                Confort ({freePct}%)
+              </Text>
+            ) : freePct >= 12 ? (
+              <Text style={[styles.barText, { color: colors.brand }]} numberOfLines={1}>
+                {freePct}%
+              </Text>
+            ) : null}
           </View>
         )}
         {expensesPct > 0 && (
@@ -193,9 +257,15 @@ export function SimulatorWaterfall({
               { width: `${expensesPct}%`, backgroundColor: "#FBBF24" },
             ]}
           >
-            <Text style={[styles.barText, { color: "#78350F" }]} numberOfLines={1}>
-              Projets (-{expensesPct}%)
-            </Text>
+            {expensesPct >= (isMobile ? 24 : 16) ? (
+              <Text style={[styles.barText, { color: "#78350F" }]} numberOfLines={1}>
+                Projets (-{expensesPct}%)
+              </Text>
+            ) : expensesPct >= 12 ? (
+              <Text style={[styles.barText, { color: "#78350F" }]} numberOfLines={1}>
+                -{expensesPct}%
+              </Text>
+            ) : null}
           </View>
         )}
       </View>
@@ -236,7 +306,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(16, 185, 129, 0.3)",
     ...shadows.sm,
-    ...({ backdropFilter: "blur(20px)" } as any),
+    ...(Platform.OS === "web"
+      ? ({ backdropFilter: "blur(20px)" } as unknown as ViewStyle)
+      : {}),
+  },
+  containerMobile: {
+    padding: 14,
   },
   headerRow: {
     flexDirection: "row",
@@ -280,6 +355,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     justifyContent: "center",
+  },
+  cushionTargetBoxNarrow: {
+    width: "100%",
+    alignItems: "flex-start",
   },
   cushionTargetBoxEditing: {
     backgroundColor: "#FFFFFF",
@@ -328,7 +407,9 @@ const styles = StyleSheet.create({
     minWidth: 64,
     textAlign: "right",
     paddingVertical: 1,
-    ...({ outlineStyle: "none" } as any),
+    ...(Platform.OS === "web"
+      ? ({ outlineStyle: "none" } as unknown as TextStyle)
+      : {}),
   },
   editCurrency: {
     fontSize: 12,
@@ -373,20 +454,42 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
+  stepsRowMobile: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    gap: 4,
+  },
+  stepItem: {
+    alignItems: "flex-start",
+  },
+  stepItemMobile: {
+    flex: 1,
+    minWidth: 0,
+  },
   stepLabel: {
     fontSize: 10,
     color: colors.textMuted,
     fontWeight: "600",
     marginBottom: 2,
   },
+  stepLabelMobile: {
+    fontSize: 9,
+  },
   stepVal: {
     fontSize: 15,
     fontWeight: "800",
+  },
+  stepValMobile: {
+    fontSize: 13,
   },
   operator: {
     fontSize: 18,
     fontWeight: "700",
     color: colors.textMuted,
+  },
+  operatorMobile: {
+    fontSize: 14,
+    marginHorizontal: 0,
   },
   barContainer: {
     height: 24,
@@ -403,7 +506,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 4,
+    paddingHorizontal: 2,
+    overflow: "hidden",
   },
   barText: {
     fontSize: 10,

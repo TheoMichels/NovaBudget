@@ -1,5 +1,13 @@
 import React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  ViewStyle,
+  useWindowDimensions,
+} from "react-native";
 import { colors, shadows } from "../../theme/colors";
 import { cursorPointer } from "../../theme/webCursor";
 import { formatEuro } from "../../hooks/useForecast";
@@ -30,6 +38,8 @@ export function FutureProjectsSection({
   onToggleActive,
   onRemove,
 }: FutureProjectsSectionProps) {
+  const { width } = useWindowDimensions();
+  const isMobile = width < 600;
   const activeProjects = projects.filter((p) => p.isActive);
   const totalActive = activeProjects.reduce(
     (sum, p) => sum + (Number(p.amount) || 0),
@@ -37,7 +47,7 @@ export function FutureProjectsSection({
   );
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isMobile && styles.containerMobile]}>
       <View style={styles.headerRow}>
         <View>
           <View style={styles.titleRow}>
@@ -223,8 +233,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     ...shadows.sm,
-    ...({ backdropFilter: "blur(20px)" } as any),
+    ...(Platform.OS === "web"
+      ? ({ backdropFilter: "blur(20px)" } as unknown as ViewStyle)
+      : {}),
     gap: 14,
+  },
+  containerMobile: {
+    padding: 14,
   },
   headerRow: {
     flexDirection: "row",
@@ -308,7 +323,7 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: "#FFFFFF",
     borderRadius: 16,
-    padding: 14,
+    padding: 12,
     borderWidth: 1,
     borderColor: colors.border,
     gap: 10,
@@ -322,13 +337,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 12,
+    gap: 8,
   },
   cardHeaderLeft: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
     flex: 1,
+    minWidth: 0,
+    flexShrink: 1,
   },
   iconBox: {
     width: 38,
@@ -373,10 +390,11 @@ const styles = StyleSheet.create({
   cardHeaderRight: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 6,
+    flexShrink: 0,
   },
   itemAmount: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "900",
     color: "#92400E",
   },
@@ -384,7 +402,7 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
   },
   toggleBtn: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
   },
@@ -430,12 +448,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     flexWrap: "wrap",
-    gap: 8,
+    gap: 6,
   },
   feasibilityInfo: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 4,
+    flexWrap: "wrap",
+    flex: 1,
+    minWidth: 0,
   },
   feasibilityLabel: {
     fontSize: 11,

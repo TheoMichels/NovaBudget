@@ -83,9 +83,6 @@ export function Header({
           >
             🚀 Projections & Projets
           </Text>
-          <View style={styles.newBadge}>
-            <Text style={styles.newBadgeText}>NEW</Text>
-          </View>
         </Pressable>
       </View>
 
@@ -238,17 +235,6 @@ const styles = StyleSheet.create({
   },
   tabBtnTextActive: {
     color: "#FFFFFF",
-  },
-  newBadge: {
-    backgroundColor: colors.primarySoft,
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    borderRadius: 5,
-  },
-  newBadgeText: {
-    fontSize: 9,
-    fontWeight: "800",
-    color: colors.primary,
   },
   btnInflow: {
     backgroundColor: colors.inflowSoft,

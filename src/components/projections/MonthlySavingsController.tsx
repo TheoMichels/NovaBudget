@@ -1,5 +1,13 @@
 import React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  ViewStyle,
+  useWindowDimensions,
+} from "react-native";
 import { colors, shadows } from "../../theme/colors";
 import { cursorPointer } from "../../theme/webCursor";
 import { formatEuro } from "../../hooks/useForecast";
@@ -20,6 +28,8 @@ export function MonthlySavingsController({
   weightedAnnualRate,
   initialSavings,
 }: MonthlySavingsControllerProps) {
+  const { width } = useWindowDimensions();
+  const isMobile = width < 600;
   const currentTotal = monthlyConfig.monthlyTotal || 0;
 
   // Estimated monthly interest currently generated
@@ -28,9 +38,9 @@ export function MonthlySavingsController({
   );
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isMobile && styles.containerMobile]}>
       <View style={styles.headerRow}>
-        <View>
+        <View style={{ flex: 1 }}>
           <Text style={styles.title}>1. Capacité d'Épargne Mensuelle</Text>
           <Text style={styles.subtitle}>
             Montant récurrent injecté chaque mois sur vos livrets & investissements.
@@ -44,43 +54,49 @@ export function MonthlySavingsController({
       {/* Main Total Box with Steppers */}
       <View style={styles.masterBox}>
         <Text style={styles.masterLabel}>EFFORT D'ÉPARGNE MENSUEL</Text>
-        <View style={styles.masterAmountRow}>
-          <Pressable
-            style={[styles.stepperBtn, cursorPointer]}
-            onPress={() => onUpdateTotal(Math.max(0, currentTotal - 100))}
-            accessibilityLabel="Diminuer de 100€"
-          >
-            <Text style={styles.stepperBtnText}>-100</Text>
-          </Pressable>
+        <View style={[styles.masterAmountRow, isMobile && styles.masterAmountRowMobile]}>
+          <View style={styles.stepperGroup}>
+            <Pressable
+              style={[styles.stepperBtn, cursorPointer]}
+              onPress={() => onUpdateTotal(Math.max(0, currentTotal - 100))}
+              accessibilityLabel="Diminuer de 100€"
+            >
+              <Text style={styles.stepperBtnText}>-100</Text>
+            </Pressable>
 
-          <Pressable
-            style={[styles.stepperBtn, cursorPointer]}
-            onPress={() => onUpdateTotal(Math.max(0, currentTotal - 50))}
-            accessibilityLabel="Diminuer de 50€"
-          >
-            <Text style={styles.stepperBtnText}>-50</Text>
-          </Pressable>
+            <Pressable
+              style={[styles.stepperBtn, cursorPointer]}
+              onPress={() => onUpdateTotal(Math.max(0, currentTotal - 50))}
+              accessibilityLabel="Diminuer de 50€"
+            >
+              <Text style={styles.stepperBtnText}>-50</Text>
+            </Pressable>
+          </View>
 
-          <View style={styles.amountDisplay}>
-            <Text style={styles.amountValue}>{formatEuro(currentTotal)}</Text>
+          <View style={[styles.amountDisplay, isMobile && styles.amountDisplayMobile]}>
+            <Text style={[styles.amountValue, isMobile && styles.amountValueMobile]}>
+              {formatEuro(currentTotal)}
+            </Text>
             <Text style={styles.amountUnit}>/ mois</Text>
           </View>
 
-          <Pressable
-            style={[styles.stepperBtn, cursorPointer]}
-            onPress={() => onUpdateTotal(currentTotal + 50)}
-            accessibilityLabel="Augmenter de 50€"
-          >
-            <Text style={styles.stepperBtnText}>+50</Text>
-          </Pressable>
+          <View style={styles.stepperGroup}>
+            <Pressable
+              style={[styles.stepperBtn, cursorPointer]}
+              onPress={() => onUpdateTotal(currentTotal + 50)}
+              accessibilityLabel="Augmenter de 50€"
+            >
+              <Text style={styles.stepperBtnText}>+50</Text>
+            </Pressable>
 
-          <Pressable
-            style={[styles.stepperBtn, cursorPointer]}
-            onPress={() => onUpdateTotal(currentTotal + 100)}
-            accessibilityLabel="Augmenter de 100€"
-          >
-            <Text style={styles.stepperBtnText}>+100</Text>
-          </Pressable>
+            <Pressable
+              style={[styles.stepperBtn, cursorPointer]}
+              onPress={() => onUpdateTotal(currentTotal + 100)}
+              accessibilityLabel="Augmenter de 100€"
+            >
+              <Text style={styles.stepperBtnText}>+100</Text>
+            </Pressable>
+          </View>
         </View>
 
         {/* Quick Presets */}
@@ -139,8 +155,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     ...shadows.sm,
-    ...({ backdropFilter: "blur(20px)" } as any),
+    ...(Platform.OS === "web"
+      ? ({ backdropFilter: "blur(20px)" } as unknown as ViewStyle)
+      : {}),
     gap: 14,
+  },
+  containerMobile: {
+    padding: 14,
   },
   headerRow: {
     flexDirection: "row",
@@ -190,6 +211,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 10,
     flexWrap: "wrap",
+    width: "100%",
+  },
+  masterAmountRowMobile: {
+    gap: 6,
+  },
+  stepperGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
   },
   stepperBtn: {
     paddingHorizontal: 8,
@@ -208,13 +238,19 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "baseline",
     gap: 4,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
+  },
+  amountDisplayMobile: {
+    paddingHorizontal: 4,
   },
   amountValue: {
     fontSize: 26,
     fontWeight: "900",
     color: colors.primary,
     letterSpacing: -0.5,
+  },
+  amountValueMobile: {
+    fontSize: 22,
   },
   amountUnit: {
     fontSize: 12,

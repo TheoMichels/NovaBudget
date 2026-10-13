@@ -1,5 +1,13 @@
 import React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  ViewStyle,
+  useWindowDimensions,
+} from "react-native";
 import { colors, shadows } from "../../theme/colors";
 import { cursorPointer } from "../../theme/webCursor";
 import { formatEuro } from "../../hooks/useForecast";
@@ -19,11 +27,13 @@ export function InflowsSection({
   onToggleActive,
   onRemove,
 }: InflowsSectionProps) {
+  const { width } = useWindowDimensions();
+  const isMobile = width < 600;
   const activeInflows = inflows.filter((i) => i.isActive);
   const totalActive = activeInflows.reduce((sum, i) => sum + (Number(i.amount) || 0), 0);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isMobile && styles.containerMobile]}>
       <View style={styles.headerRow}>
         <View>
           <View style={styles.titleRow}>
@@ -150,8 +160,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     ...shadows.sm,
-    ...({ backdropFilter: "blur(20px)" } as any),
+    ...(Platform.OS === "web"
+      ? ({ backdropFilter: "blur(20px)" } as unknown as ViewStyle)
+      : {}),
     gap: 14,
+  },
+  containerMobile: {
+    padding: 14,
   },
   headerRow: {
     flexDirection: "row",
@@ -241,7 +256,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 10,
+    gap: 8,
     ...shadows.sm,
   },
   cardInactive: {
@@ -253,6 +268,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 10,
     flex: 1,
+    minWidth: 0,
+    flexShrink: 1,
   },
   checkbox: {
     width: 22,
@@ -283,6 +300,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "800",
     color: colors.brand,
+    flexShrink: 1,
   },
   itemTitleInactive: {
     textDecorationLine: "line-through",
@@ -313,6 +331,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
+    flexShrink: 0,
   },
   itemAmount: {
     fontSize: 14,

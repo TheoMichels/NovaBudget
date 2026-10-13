@@ -1,5 +1,12 @@
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import {
+  Platform,
+  StyleSheet,
+  Text,
+  View,
+  ViewStyle,
+  useWindowDimensions,
+} from "react-native";
 import { colors, shadows } from "../theme/colors";
 import { formatEuro } from "../hooks/useForecast";
 
@@ -18,10 +25,25 @@ export function MetricCards({
   activeExpensesCount,
   postTotalSavings,
 }: MetricCardsProps) {
+  const { width } = useWindowDimensions();
+  const isMobile = width < 768;
+
+  const responsiveCardStyle: ViewStyle = {
+    width: isMobile ? "100%" : undefined,
+    minWidth: isMobile ? "100%" : 260,
+  };
+
   return (
     <View style={styles.grid}>
       {/* 1. Épargne Actuelle Totale */}
-      <View style={[styles.card, styles.cardSavings]}>
+      <View
+        style={[
+          styles.card,
+          styles.cardSavings,
+          responsiveCardStyle,
+          isMobile && styles.cardMobile,
+        ]}
+      >
         <View style={styles.cardHeader}>
           <Text style={styles.cardLabel}>Épargne Actuelle</Text>
           <View style={[styles.iconCircle, { backgroundColor: colors.primarySoft }]}>
@@ -30,7 +52,9 @@ export function MetricCards({
         </View>
 
         <View style={styles.amountRow}>
-          <Text style={styles.amountText}>{formatEuro(totalSavings)}</Text>
+          <Text style={[styles.amountText, isMobile && styles.amountTextMobile]}>
+            {formatEuro(totalSavings)}
+          </Text>
           <View style={styles.pillGreen}>
             <Text style={styles.pillGreenText}>Dispo</Text>
           </View>
@@ -45,7 +69,14 @@ export function MetricCards({
       </View>
 
       {/* 2. Dépenses Planifiées */}
-      <View style={[styles.card, styles.cardExpenses]}>
+      <View
+        style={[
+          styles.card,
+          styles.cardExpenses,
+          responsiveCardStyle,
+          isMobile && styles.cardMobile,
+        ]}
+      >
         <View style={styles.cardHeader}>
           <Text style={[styles.cardLabel, { color: colors.warning }]}>
             Dépenses Prévues
@@ -56,7 +87,13 @@ export function MetricCards({
         </View>
 
         <View style={styles.amountRow}>
-          <Text style={[styles.amountText, { color: "#92400E" }]}>
+          <Text
+            style={[
+              styles.amountText,
+              { color: "#92400E" },
+              isMobile && styles.amountTextMobile,
+            ]}
+          >
             {totalActiveExpenses > 0
               ? `-${formatEuro(totalActiveExpenses)}`
               : "0 €"}
@@ -75,7 +112,14 @@ export function MetricCards({
       </View>
 
       {/* 3. Épargne Finale Prévisionnelle */}
-      <View style={[styles.card, styles.cardForecast]}>
+      <View
+        style={[
+          styles.card,
+          styles.cardForecast,
+          responsiveCardStyle,
+          isMobile && styles.cardMobile,
+        ]}
+      >
         <View style={styles.cardHeader}>
           <Text style={[styles.cardLabel, { color: colors.primary }]}>
             Épargne Prévisionnelle
@@ -86,7 +130,13 @@ export function MetricCards({
         </View>
 
         <View style={styles.amountRow}>
-          <Text style={[styles.amountText, { color: colors.primary }]}>
+          <Text
+            style={[
+              styles.amountText,
+              { color: colors.primary },
+              isMobile && styles.amountTextMobile,
+            ]}
+          >
             {formatEuro(postTotalSavings)}
           </Text>
           <View style={styles.pillStatus}>
@@ -117,7 +167,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     ...shadows.sm,
-    ...({ backdropFilter: "blur(20px)" } as any),
+    ...(Platform.OS === "web"
+      ? ({ backdropFilter: "blur(20px)" } as unknown as ViewStyle)
+      : {}),
+  },
+  cardMobile: {
+    padding: 16,
   },
   cardSavings: {
     borderColor: "rgba(16, 185, 129, 0.25)",
@@ -159,6 +214,10 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: "800",
     color: colors.brand,
+    letterSpacing: -0.5,
+  },
+  amountTextMobile: {
+    fontSize: 23,
     letterSpacing: -0.5,
   },
   pillGreen: {

@@ -1,10 +1,12 @@
 import React, { useState } from "react";
 import {
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
   View,
+  ViewStyle,
 } from "react-native";
 import { colors, shadows } from "../theme/colors";
 import { cursorPointer } from "../theme/webCursor";
@@ -273,13 +275,13 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
     borderRadius: 18,
-    padding: 14,
+    padding: 12,
     borderWidth: 1,
     borderColor: "rgba(217, 119, 6, 0.2)",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 12,
+    gap: 8,
     ...shadows.sm,
   },
   cardInactive: {
@@ -289,9 +291,10 @@ const styles = StyleSheet.create({
   cardLeft: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 10,
     flex: 1,
     minWidth: 0,
+    flexShrink: 1,
   },
   checkbox: {
     padding: 2,
@@ -331,7 +334,7 @@ const styles = StyleSheet.create({
   metaRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 6,
     marginTop: 4,
     flexWrap: "wrap",
   },
@@ -371,7 +374,8 @@ const styles = StyleSheet.create({
   cardRight: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 8,
+    flexShrink: 0,
   },
   amountCol: {
     alignItems: "flex-end",
@@ -441,7 +445,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     padding: 16,
-    ...({ backdropFilter: "blur(6px)" } as any),
+    ...(Platform.OS === "web"
+      ? ({ backdropFilter: "blur(6px)" } as unknown as ViewStyle)
+      : {}),
   },
   modalCard: {
     width: "100%",

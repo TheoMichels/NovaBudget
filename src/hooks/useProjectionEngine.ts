@@ -157,6 +157,9 @@ export function useProjectionEngine(
       initialSavings > 0 ? (netDiff / initialSavings) * 100 : 0;
     const cushionSurplus = finalSavings - safetyCushionTarget;
     const isHealthy = cushionSurplus >= 0;
+    const totalProgrammedSavings = Math.round(
+      accumulatedContributions + totalInflowsIn
+    );
 
     // Feasibility calculation for all projects
     const feasibilities: ProjectFeasibility[] = projects.map((proj) => {
@@ -210,6 +213,7 @@ export function useProjectionEngine(
       netDiff,
       netDiffPct: parseFloat(netDiffPct.toFixed(1)),
       totalMonthlySaved: Math.round(accumulatedContributions),
+      totalProgrammedSavings,
       totalInterest: Math.round(accumulatedInterest),
       totalProjectsOut: Math.round(totalProjectsOut),
       totalInflowsIn: Math.round(totalInflowsIn),

@@ -27,6 +27,7 @@ import { ProjectionsTab } from "./src/components/projections/ProjectionsTab";
 export default function App() {
   const { width } = useWindowDimensions();
   const isDesktop = width >= 1024;
+  const isMobile = width < 768;
 
   const [activeTab, setActiveTab] = useState<"current" | "projections">("current");
   const [isAddSavingsVisible, setIsAddSavingsVisible] = useState(false);
@@ -84,7 +85,10 @@ export default function App() {
           {/* Main Scrollable Dashboard */}
           <ScrollView
             style={styles.scrollView}
-            contentContainerStyle={styles.scrollContent}
+            contentContainerStyle={[
+              styles.scrollContent,
+              isMobile && styles.scrollContentMobile,
+            ]}
             showsVerticalScrollIndicator={false}
           >
             {activeTab === "current" ? (
@@ -185,12 +189,18 @@ const styles = StyleSheet.create({
     width: "100%",
     alignSelf: "center",
   },
+  scrollContentMobile: {
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+    gap: 14,
+  },
   columnsRow: {
     flexDirection: "row",
     gap: 20,
   },
   columnsStacked: {
     flexDirection: "column",
+    gap: 14,
   },
   column: {
     minWidth: 0,

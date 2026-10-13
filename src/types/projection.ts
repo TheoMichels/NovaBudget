@@ -67,6 +67,7 @@ export interface ProjectionForecastResult {
   netDiff: number;
   netDiffPct: number;
   totalMonthlySaved: number;
+  totalProgrammedSavings: number;
   totalInterest: number;
   totalProjectsOut: number;
   totalInflowsIn: number;

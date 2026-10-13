@@ -1,9 +1,11 @@
 import React, { useState } from "react";
 import {
+  Platform,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
+  TextStyle,
   View,
 } from "react-native";
 import { colors, shadows } from "../theme/colors";
@@ -241,25 +243,26 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
     borderRadius: 18,
-    padding: 14,
+    padding: 12,
     borderWidth: 1,
     borderColor: colors.border,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 12,
+    gap: 8,
     ...shadows.sm,
   },
   cardLeft: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 10,
     flex: 1,
     minWidth: 0,
+    flexShrink: 1,
   },
   bankAvatar: {
-    width: 38,
-    height: 38,
+    width: 36,
+    height: 36,
     borderRadius: 12,
     backgroundColor: colors.primarySoft,
     alignItems: "center",
@@ -288,8 +291,9 @@ const styles = StyleSheet.create({
   metaRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 6,
     marginTop: 4,
+    flexWrap: "wrap",
   },
   catBadge: {
     backgroundColor: "rgba(15, 41, 34, 0.05)",
@@ -310,7 +314,8 @@ const styles = StyleSheet.create({
   cardRight: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 8,
+    flexShrink: 0,
   },
   amountCol: {
     alignItems: "flex-end",
@@ -356,17 +361,19 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: colors.primary,
     borderRadius: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
   },
   editInput: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "700",
     color: colors.brand,
-    minWidth: 72,
+    minWidth: 54,
     textAlign: "right",
     paddingVertical: 2,
-    ...({ outlineStyle: "none" } as any),
+    ...(Platform.OS === "web"
+      ? ({ outlineStyle: "none" } as unknown as TextStyle)
+      : {}),
   },
   editCurrency: {
     fontSize: 13,

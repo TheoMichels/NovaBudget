@@ -1,5 +1,5 @@
 import React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { colors, shadows } from "../../theme/colors";
 import { cursorPointer } from "../../theme/webCursor";
 import { formatEuro } from "../../hooks/useForecast";
@@ -29,6 +29,12 @@ export function ProjectionKpiCards({
   safetyCushionTarget,
 }: ProjectionKpiCardsProps) {
   const isPositiveDiff = forecast.netDiff >= 0;
+  const activeProjectsCount = forecast.feasibilities.filter(
+    (f) =>
+      f.project.isActive &&
+      f.monthIndex >= 1 &&
+      f.monthIndex <= forecast.horizonMonths
+  ).length;
 
   return (
     <View style={styles.container}>
@@ -51,7 +57,12 @@ export function ProjectionKpiCards({
         {/* Horizon selector buttons */}
         <View style={styles.horizonSelector}>
           <Text style={styles.horizonLabel}>Horizon :</Text>
-          <View style={styles.horizonPills}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.horizonPills}
+            style={styles.horizonScroll}
+          >
             {HORIZONS.map((h) => {
               const isSelected = h.months === horizonMonths;
               return (
@@ -75,7 +86,7 @@ export function ProjectionKpiCards({
                 </Pressable>
               );
             })}
-          </View>
+          </ScrollView>
         </View>
       </View>
 
@@ -141,7 +152,7 @@ export function ProjectionKpiCards({
 
           <View style={styles.amountRow}>
             <Text style={[styles.amountText, { color: colors.brand }]}>
-              +{formatEuro(forecast.totalMonthlySaved)}
+              +{formatEuro(forecast.totalProgrammedSavings)}
             </Text>
           </View>
 
@@ -151,6 +162,14 @@ export function ProjectionKpiCards({
               {formatEuro(monthlySavings)} / mois
             </Text>
           </View>
+          {forecast.totalInflowsIn > 0 ? (
+            <View style={[styles.footerNoteRow, styles.footerSubRow]}>
+              <Text style={styles.footerNoteLabel}>dont rentrées :</Text>
+              <Text style={[styles.footerNoteValue, { color: colors.primary }]}>
+                +{formatEuro(forecast.totalInflowsIn)}
+              </Text>
+            </View>
+          ) : null}
         </View>
 
         {/* 3. Intérêts Composés */}
@@ -198,9 +217,9 @@ export function ProjectionKpiCards({
           </View>
 
           <View style={styles.footerNoteRow}>
-            <Text style={styles.footerNoteLabel}>Rentrées exceptionnelles :</Text>
-            <Text style={[styles.footerNoteValue, { color: colors.primary }]}>
-              +{formatEuro(forecast.totalInflowsIn)}
+            <Text style={styles.footerNoteLabel}>Projets financés :</Text>
+            <Text style={[styles.footerNoteValue, { color: colors.warning }]}>
+              {activeProjectsCount}
             </Text>
           </View>
         </View>
@@ -353,6 +372,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     gap: 4,
+    maxWidth: "100%",
   },
   horizonLabel: {
     fontSize: 11,
@@ -360,9 +380,14 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     paddingLeft: 6,
     paddingRight: 2,
+    flexShrink: 0,
+  },
+  horizonScroll: {
+    flexShrink: 1,
   },
   horizonPills: {
     flexDirection: "row",
+    alignItems: "center",
     gap: 4,
   },
   horizonBtn: {
@@ -390,7 +415,7 @@ const styles = StyleSheet.create({
   },
   card: {
     flex: 1,
-    minWidth: 200,
+    minWidth: 150,
     backgroundColor: colors.surface,
     borderRadius: 18,
     padding: 16,
@@ -416,11 +441,13 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   cardLabel: {
+    flex: 1,
     fontSize: 11,
     fontWeight: "700",
     color: colors.textSecondary,
     textTransform: "uppercase",
     letterSpacing: 0.4,
+    marginRight: 6,
   },
   iconCircle: {
     width: 26,
@@ -432,7 +459,8 @@ const styles = StyleSheet.create({
   amountRow: {
     flexDirection: "row",
     alignItems: "baseline",
-    gap: 8,
+    flexWrap: "wrap",
+    gap: 6,
     marginBottom: 12,
   },
   amountText: {
@@ -460,9 +488,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    flexWrap: "wrap",
     borderTopWidth: 1,
     borderTopColor: colors.divider,
     paddingTop: 8,
+    gap: 4,
+  },
+  footerSubRow: {
+    borderTopWidth: 0,
+    paddingTop: 4,
   },
   footerNoteLabel: {
     fontSize: 10,
