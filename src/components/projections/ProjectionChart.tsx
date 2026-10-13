@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from "react-native";
 import Svg, {
   Circle,
@@ -31,6 +32,9 @@ export function ProjectionChart({
   monthlyData,
   safetyCushionTarget,
 }: ProjectionChartProps) {
+  const { width } = useWindowDimensions();
+  const isMobile = width < 768;
+  const isNarrow = width < 400;
   const [chartWidth, setChartWidth] = useState(600);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 
@@ -115,10 +119,10 @@ export function ProjectionChart({
     selectedIndex !== null ? monthlyData[selectedIndex] : null;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isMobile && styles.containerMobile]}>
       {/* Header with Title & Legends */}
       <View style={styles.header}>
-        <View>
+        <View style={{ flex: 1, minWidth: isNarrow ? "100%" : 260 }}>
           <View style={styles.titleRow}>
             <Text style={styles.title}>Trajectoire du Patrimoine d'Épargne</Text>
             <View style={styles.tagLive}>
@@ -131,7 +135,7 @@ export function ProjectionChart({
         </View>
 
         {/* Legends */}
-        <View style={styles.legendsRow}>
+        <View style={[styles.legendsRow, isMobile && styles.legendsRowMobile]}>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: colors.primary }]} />
             <Text style={styles.legendText}>Épargne totale</Text>
@@ -158,10 +162,15 @@ export function ProjectionChart({
 
       {/* Selected Point Preview Box */}
       {activePoint && (
-        <View style={styles.tooltipBox}>
-          <View style={styles.tooltipLeft}>
+        <View style={[styles.tooltipBox, isMobile && styles.tooltipBoxMobile]}>
+          <View style={[styles.tooltipLeft, isNarrow && styles.tooltipLeftNarrow]}>
             <Text style={styles.tooltipMonth}>{activePoint.label}</Text>
-            <Text style={styles.tooltipCapital}>
+            <Text
+              style={[
+                styles.tooltipCapital,
+                isNarrow && styles.tooltipCapitalNarrow,
+              ]}
+            >
               {formatEuro(activePoint.capital)}
             </Text>
           </View>
@@ -392,7 +401,13 @@ export function ProjectionChart({
                   {ev.type === "project" ? "-" : "+"}
                   {formatEuro(ev.amount)}
                 </Text>
-                <Text style={styles.eventPillTitle} numberOfLines={1}>
+                <Text
+                  style={[
+                    styles.eventPillTitle,
+                    isMobile && (isNarrow ? styles.eventPillTitleNarrow : styles.eventPillTitleMobile),
+                  ]}
+                  numberOfLines={1}
+                >
                   ({ev.title})
                 </Text>
               </View>
@@ -415,6 +430,9 @@ const styles = StyleSheet.create({
     ...({ backdropFilter: "blur(20px)" } as any),
     gap: 14,
   },
+  containerMobile: {
+    padding: 14,
+  },
   header: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -425,12 +443,14 @@ const styles = StyleSheet.create({
   titleRow: {
     flexDirection: "row",
     alignItems: "center",
+    flexWrap: "wrap",
     gap: 8,
   },
   title: {
     fontSize: 16,
     fontWeight: "800",
     color: colors.brand,
+    flexShrink: 1,
   },
   tagLive: {
     backgroundColor: colors.primarySoft,
@@ -453,6 +473,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flexWrap: "wrap",
     gap: 12,
+  },
+  legendsRowMobile: {
+    gap: 8,
   },
   legendItem: {
     flexDirection: "row",
@@ -485,8 +508,17 @@ const styles = StyleSheet.create({
     gap: 12,
     ...shadows.md,
   },
+  tooltipBoxMobile: {
+    flexWrap: "wrap",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 8,
+  },
   tooltipLeft: {
     flexDirection: "column",
+  },
+  tooltipLeftNarrow: {
+    minWidth: "100%",
   },
   tooltipMonth: {
     fontSize: 10,
@@ -498,6 +530,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "800",
     color: "#FFFFFF",
+  },
+  tooltipCapitalNarrow: {
+    fontSize: 16,
   },
   tooltipRight: {
     flex: 1,
@@ -581,5 +616,11 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: colors.textSecondary,
     maxWidth: 160,
+  },
+  eventPillTitleMobile: {
+    maxWidth: 110,
+  },
+  eventPillTitleNarrow: {
+    maxWidth: 90,
   },
 });

@@ -197,7 +197,7 @@ export function FutureProjectsSection({
                     <View style={styles.feasibilityRow}>
                       <View style={styles.feasibilityInfo}>
                         <Text style={styles.feasibilityLabel}>
-                          Solde prévisionnel après apport :
+                          {isMobile ? "Solde après apport :" : "Solde prévisionnel après apport :"}
                         </Text>
                         <Text
                           style={[
