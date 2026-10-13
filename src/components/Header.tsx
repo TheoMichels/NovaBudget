@@ -17,8 +17,8 @@ import { AuthModal } from "./AuthModal";
 interface HeaderProps {
   activeTab: "current" | "projections";
   onSelectTab: (tab: "current" | "projections") => void;
-  onOpenAddSavings: () => void;
-  onOpenAddExpense: () => void;
+  onOpenAddSavings?: () => void;
+  onOpenAddExpense?: () => void;
   onOpenAddProject?: () => void;
   onOpenAddInflow?: () => void;
   onOpenAuth?: () => void;
@@ -27,8 +27,8 @@ interface HeaderProps {
 export function Header({
   activeTab,
   onSelectTab,
-  onOpenAddSavings,
-  onOpenAddExpense,
+  onOpenAddSavings: _onOpenAddSavings,
+  onOpenAddExpense: _onOpenAddExpense,
   onOpenAddProject,
   onOpenAddInflow,
   onOpenAuth,
@@ -50,129 +50,146 @@ export function Header({
     ? `🟢 ${user?.email?.split("@")[0] ?? "Connecté"}`
     : `🟢 ${user?.email ?? "Connecté"}`;
 
+  const headerDynamicStyle: ViewStyle = {
+    backgroundColor: isMobile ? "#FFFFFF" : colors.panel,
+    ...(!isMobile && Platform.OS === "web"
+      ? ({ backdropFilter: "blur(20px)" } as unknown as ViewStyle)
+      : {}),
+  };
+
+  const renderBrand = () => (
+    <View style={styles.brandRow}>
+      <View style={styles.logoBadge}>
+        <Image
+          source={require("../../assets/logo.png")}
+          style={styles.logoImage}
+          resizeMode="cover"
+        />
+      </View>
+      <View>
+        <Text style={styles.brandTitle}>NovaBudget</Text>
+        <Text style={styles.brandSubtitle}>Épargne & Prévisions</Text>
+      </View>
+    </View>
+  );
+
+  const renderTabs = () => (
+    <View style={[styles.tabsRow, isMobile && styles.tabsRowMobile]}>
+      <Pressable
+        style={[
+          styles.tabBtn,
+          isMobile && styles.tabBtnMobile,
+          cursorPointer,
+          activeTab === "current" && styles.tabBtnActive,
+        ]}
+        onPress={() => onSelectTab("current")}
+      >
+        <Text
+          style={[
+            styles.tabBtnText,
+            activeTab === "current" && styles.tabBtnTextActive,
+          ]}
+        >
+          📊 Court Terme
+        </Text>
+      </Pressable>
+
+      <Pressable
+        style={[
+          styles.tabBtn,
+          isMobile && styles.tabBtnMobile,
+          cursorPointer,
+          activeTab === "projections" && styles.tabBtnActive,
+        ]}
+        onPress={() => onSelectTab("projections")}
+      >
+        <Text
+          style={[
+            styles.tabBtnText,
+            activeTab === "projections" && styles.tabBtnTextActive,
+          ]}
+        >
+          🚀 Projections & Projets
+        </Text>
+      </Pressable>
+    </View>
+  );
+
+  const renderActions = () => (
+    <View style={styles.actionsRow}>
+      {/* Cloud Auth Status Badge */}
+      <Pressable
+        style={[styles.cloudBadge, cursorPointer]}
+        onPress={handleOpenAuth}
+        accessibilityRole="button"
+        accessibilityLabel="Gérer mon compte et synchronisation"
+      >
+        <Text style={styles.cloudBadgeText} numberOfLines={1}>
+          {userDisplayLabel}
+        </Text>
+      </Pressable>
+
+      {/* Bouton direct de déconnexion rapide */}
+      <Pressable
+        style={[styles.btnSignOut, cursorPointer]}
+        onPress={() => signOut()}
+        accessibilityRole="button"
+        accessibilityLabel="Se déconnecter"
+      >
+        <Text style={styles.btnSignOutText}>
+          {isMobile ? "🚪" : "Déconnexion"}
+        </Text>
+      </Pressable>
+
+      {/* Actions contextuelles pour l'onglet projections */}
+      {activeTab === "projections" && (
+        <>
+          {!isMobile && onOpenAddInflow && (
+            <Pressable
+              style={[styles.btnInflow, cursorPointer]}
+              onPress={onOpenAddInflow}
+            >
+              <Text style={styles.btnInflowText}>+ Rentrée</Text>
+            </Pressable>
+          )}
+
+          {onOpenAddProject && (
+            <Pressable
+              style={[styles.btnPrimary, cursorPointer]}
+              onPress={onOpenAddProject}
+            >
+              <Text style={styles.btnPrimaryText}>+ Projet</Text>
+            </Pressable>
+          )}
+        </>
+      )}
+    </View>
+  );
+
   return (
     <>
-      <View style={styles.header}>
-        {/* Brand & Title (Logo préservé à l'identique) */}
-        <View style={styles.brandRow}>
-          <View style={styles.logoBadge}>
-            <Image
-              source={require("../../assets/logo.png")}
-              style={styles.logoImage}
-              resizeMode="cover"
-            />
-          </View>
-          <View>
-            <Text style={styles.brandTitle}>NovaBudget</Text>
-            <Text style={styles.brandSubtitle}>Épargne & Prévisions</Text>
-          </View>
-        </View>
-
-        {/* Main Tab Navigation */}
-        <View style={styles.tabsRow}>
-          <Pressable
-            style={[
-              styles.tabBtn,
-              cursorPointer,
-              activeTab === "current" && styles.tabBtnActive,
-            ]}
-            onPress={() => onSelectTab("current")}
-          >
-            <Text
-              style={[
-                styles.tabBtnText,
-                activeTab === "current" && styles.tabBtnTextActive,
-              ]}
-            >
-              📊 Court Terme
-            </Text>
-          </Pressable>
-
-          <Pressable
-            style={[
-              styles.tabBtn,
-              cursorPointer,
-              activeTab === "projections" && styles.tabBtnActive,
-            ]}
-            onPress={() => onSelectTab("projections")}
-          >
-            <Text
-              style={[
-                styles.tabBtnText,
-                activeTab === "projections" && styles.tabBtnTextActive,
-              ]}
-            >
-              🚀 Projections & Projets
-            </Text>
-          </Pressable>
-        </View>
-
-        {/* Contextual Action Buttons & Cloud Badge */}
-        <View style={styles.actionsRow}>
-          {/* Cloud Auth Status Badge */}
-          <Pressable
-            style={[styles.cloudBadge, cursorPointer]}
-            onPress={handleOpenAuth}
-            accessibilityRole="button"
-            accessibilityLabel="Gérer mon compte et synchronisation"
-          >
-            <Text style={styles.cloudBadgeText} numberOfLines={1}>
-              {userDisplayLabel}
-            </Text>
-          </Pressable>
-
-          {/* Bouton direct de déconnexion rapide */}
-          <Pressable
-            style={[styles.btnSignOut, cursorPointer]}
-            onPress={() => signOut()}
-            accessibilityRole="button"
-            accessibilityLabel="Se déconnecter"
-          >
-            <Text style={styles.btnSignOutText}>
-              {isMobile ? "🚪" : "Déconnexion"}
-            </Text>
-          </Pressable>
-
-          {activeTab === "current" ? (
-            <>
-              {!isMobile && (
-                <Pressable
-                  style={[styles.btnSecondary, cursorPointer]}
-                  onPress={onOpenAddExpense}
-                >
-                  <Text style={styles.btnSecondaryText}>+ Dépense</Text>
-                </Pressable>
-              )}
-
-              <Pressable
-                style={[styles.btnPrimary, cursorPointer]}
-                onPress={onOpenAddSavings}
-              >
-                <Text style={styles.btnPrimaryText}>+ Épargne</Text>
-              </Pressable>
-            </>
-          ) : (
-            <>
-              {!isMobile && onOpenAddInflow && (
-                <Pressable
-                  style={[styles.btnInflow, cursorPointer]}
-                  onPress={onOpenAddInflow}
-                >
-                  <Text style={styles.btnInflowText}>+ Rentrée</Text>
-                </Pressable>
-              )}
-
-              {onOpenAddProject && (
-                <Pressable
-                  style={[styles.btnPrimary, cursorPointer]}
-                  onPress={onOpenAddProject}
-                >
-                  <Text style={styles.btnPrimaryText}>+ Projet</Text>
-                </Pressable>
-              )}
-            </>
-          )}
-        </View>
+      <View
+        style={[
+          styles.header,
+          headerDynamicStyle,
+          isMobile && styles.headerMobile,
+        ]}
+      >
+        {isMobile ? (
+          <>
+            <View style={styles.mobileTopBar}>
+              {renderBrand()}
+              {renderActions()}
+            </View>
+            {renderTabs()}
+          </>
+        ) : (
+          <>
+            {renderBrand()}
+            {renderTabs()}
+            {renderActions()}
+          </>
+        )}
       </View>
 
       {/* Modal d'authentification et de synchronisation */}
@@ -197,9 +214,18 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: 12,
     zIndex: 10,
-    ...(Platform.OS === "web"
-      ? ({ backdropFilter: "blur(20px)" } as unknown as ViewStyle)
-      : {}),
+  },
+  headerMobile: {
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 10,
+  },
+  mobileTopBar: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   brandRow: {
     flexDirection: "row",
@@ -302,6 +328,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     gap: 3,
   },
+  tabsRowMobile: {
+    width: "100%",
+  },
   tabBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -309,6 +338,12 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     borderRadius: 11,
     gap: 6,
+  },
+  tabBtnMobile: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 8,
   },
   tabBtnActive: {
     backgroundColor: colors.primary,
@@ -318,6 +353,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     color: colors.textSecondary,
+    textAlign: "center",
   },
   tabBtnTextActive: {
     color: "#FFFFFF",
