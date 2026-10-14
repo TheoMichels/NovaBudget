@@ -14,8 +14,10 @@ export interface UnifiedKpiCardsProps {
   totalSavings: number; // Épargne actuelle
   plannedExpensesUntilDate: number; // Dépenses prévues calculées jusqu'à la date sélectionnée
   plannedExpensesCount: number; // Nombre de dépenses prévues jusqu'à cette date
-  projectedSavings: number; // Épargne projetée (= totalSavings - plannedExpensesUntilDate)
+  projectedSavings: number; // Épargne projetée exacte (intérêts et rentrées inclus)
   selectedDateLabel: string; // Ex: 'Août 2027'
+  inflowsUntilDate?: number; // Rentrées d'argent actives cumulées jusqu'à la date sélectionnée
+  accumulatedInterestUntilDate?: number; // Intérêts cumulés générés par les livrets jusqu'à cette date
 }
 
 export function UnifiedKpiCards({
@@ -24,6 +26,8 @@ export function UnifiedKpiCards({
   plannedExpensesCount,
   projectedSavings,
   selectedDateLabel,
+  inflowsUntilDate = 0,
+  accumulatedInterestUntilDate = 0,
 }: UnifiedKpiCardsProps) {
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
@@ -32,6 +36,9 @@ export function UnifiedKpiCards({
   const isDeficit = projectedSavings < 0;
   const isWarning =
     !isDeficit && totalSavings > 0 && projectedSavings < totalSavings * 0.25;
+
+  const hasPositiveGains =
+    accumulatedInterestUntilDate > 0 || inflowsUntilDate > 0;
 
   const projectedStatusText = isDeficit
     ? "Déficit"
@@ -194,8 +201,30 @@ export function UnifiedKpiCards({
           </View>
         </View>
 
-        <View style={styles.footerRow}>
-          <Text style={styles.footerText}>Solde net estimé</Text>
+        <View style={styles.footerCol}>
+          <View style={styles.footerRow}>
+            <Text style={styles.footerText} numberOfLines={1}>
+              Solde net estimé (intérêts & rentrées inclus)
+            </Text>
+          </View>
+          {hasPositiveGains && (
+            <View style={styles.gainsRow}>
+              {accumulatedInterestUntilDate > 0 && (
+                <View style={styles.miniInterestPill}>
+                  <Text style={styles.miniInterestText} numberOfLines={1}>
+                    +{formatEuro(accumulatedInterestUntilDate)} intérêts
+                  </Text>
+                </View>
+              )}
+              {inflowsUntilDate > 0 && (
+                <View style={styles.miniInflowPill}>
+                  <Text style={styles.miniInflowText} numberOfLines={1}>
+                    +{formatEuro(inflowsUntilDate)} rentrées
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
         </View>
       </View>
     </View>
@@ -217,6 +246,7 @@ const styles = StyleSheet.create({
     padding: 18,
     borderWidth: 1,
     borderColor: "#E2E8F0",
+    justifyContent: "space-between",
     ...shadows.sm,
     ...(Platform.OS === "web"
       ? ({ backdropFilter: "blur(20px)" } as unknown as ViewStyle)
@@ -321,6 +351,9 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "800",
   },
+  footerCol: {
+    gap: 4,
+  },
   footerRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -329,5 +362,37 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "600",
     color: colors.textMuted,
+  },
+  gainsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 2,
+  },
+  miniInterestPill: {
+    backgroundColor: colors.primaryBackground,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "rgba(5, 150, 105, 0.25)",
+  },
+  miniInterestText: {
+    color: colors.primary,
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  miniInflowPill: {
+    backgroundColor: colors.inflowSoft,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "rgba(37, 99, 235, 0.25)",
+  },
+  miniInflowText: {
+    color: colors.inflow,
+    fontSize: 10,
+    fontWeight: "700",
   },
 });
