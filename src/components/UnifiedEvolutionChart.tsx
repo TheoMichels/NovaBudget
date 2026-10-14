@@ -319,9 +319,6 @@ export function UnifiedEvolutionChart({
           >
             {`📅 ${formattedMonthYear}`}
           </Text>
-          <Text style={styles.headerSubtext}>
-            Clique ou glisse sur le graphe pour ajuster la date
-          </Text>
         </View>
 
         <View style={styles.headerCapitalCol}>
