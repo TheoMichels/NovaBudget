@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -6,46 +6,41 @@ import {
   SafeAreaView,
   ScrollView,
   StyleSheet,
-  View,
   useWindowDimensions,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
-import { colors, gradient } from "./src/theme/colors";
+import { gradient } from "./src/theme/colors";
 import { useAuth } from "./src/hooks/useAuth";
 import { AuthScreen } from "./src/components/AuthScreen";
 import { useSavings } from "./src/hooks/useSavings";
 import { useExpenses } from "./src/hooks/useExpenses";
-import { useForecast } from "./src/hooks/useForecast";
+import { useProjections } from "./src/hooks/useProjections";
+import { useProjectionEngine } from "./src/hooks/useProjectionEngine";
 import { useSafetyCushion } from "./src/hooks/useSafetyCushion";
 import { Header } from "./src/components/Header";
-import { MetricCards } from "./src/components/MetricCards";
-import { SimulatorWaterfall } from "./src/components/SimulatorWaterfall";
-import { SavingsSection } from "./src/components/SavingsSection";
-import { ExpensesSection } from "./src/components/ExpensesSection";
+import { UnifiedKpiCards } from "./src/components/UnifiedKpiCards";
+import { UnifiedEvolutionChart } from "./src/components/UnifiedEvolutionChart";
+import { UnifiedManagementSections } from "./src/components/UnifiedManagementSections";
 import { AddSavingsModal } from "./src/components/AddSavingsModal";
 import { AddExpenseModal } from "./src/components/AddExpenseModal";
-import { ProjectionsTab } from "./src/components/projections/ProjectionsTab";
+import { AddInflowModal } from "./src/components/projections/AddInflowModal";
+import { formatFrenchMonthYear } from "./src/utils/dateUtils";
+import { Expense } from "./src/types/expense";
 
 function AuthenticatedDashboard(): React.JSX.Element {
   const { width } = useWindowDimensions();
-  const isDesktop = width >= 1024;
   const isMobile = width < 768;
 
-  const [activeTab, setActiveTab] = useState<"current" | "projections">("current");
   const [isAddSavingsVisible, setIsAddSavingsVisible] = useState(false);
   const [isAddExpenseVisible, setIsAddExpenseVisible] = useState(false);
-  const [isAddProjectVisible, setIsAddProjectVisible] = useState(false);
   const [isAddInflowVisible, setIsAddInflowVisible] = useState(false);
 
-  // Hooks métiers
-  const {
-    accounts,
-    addAccount,
-    updateAccount,
-    removeAccount,
-  } = useSavings();
+  // Position du slider temporel (par défaut 12 mois = 1 an)
+  const [selectedMonthIndex, setSelectedMonthIndex] = useState(12);
 
+  // Hooks métiers
+  const { accounts, addAccount, updateAccount, removeAccount } = useSavings();
   const {
     expenses,
     addExpense,
@@ -53,13 +48,94 @@ function AuthenticatedDashboard(): React.JSX.Element {
     removeExpense,
     updateExpense,
   } = useExpenses();
-
   const {
-    safetyCushionTarget,
-    updateSafetyCushionTarget,
-  } = useSafetyCushion();
+    projects,
+    inflows,
+    monthlyConfig,
+    addInflow,
+    updateInflow,
+    toggleInflow,
+    removeInflow,
+    updateMonthlyTotal,
+  } = useProjections();
+  const { safetyCushionTarget, updateSafetyCushionTarget } = useSafetyCushion();
 
-  const forecast = useForecast(accounts, expenses, safetyCushionTarget);
+  // Consolidation des dépenses planifiées (supporte les dépenses et rétro-compatibilité avec les projets futurs)
+  const allPlannedExpenses: Expense[] = useMemo(() => {
+    const map = new Map<string, Expense>();
+    expenses.forEach((e) => map.set(e.id, e));
+    projects.forEach((p) => {
+      if (!map.has(p.id)) {
+        map.set(p.id, p);
+      }
+    });
+    return Array.from(map.values()).sort((a, b) =>
+      a.targetDate.localeCompare(b.targetDate)
+    );
+  }, [expenses, projects]);
+
+  // Moteur de projection sur 36 mois (3 ans)
+  const forecast = useProjectionEngine(
+    accounts,
+    allPlannedExpenses,
+    inflows,
+    monthlyConfig,
+    36,
+    safetyCushionTarget
+  );
+
+  // 1. Épargne actuelle totale disponible
+  const totalSavings = useMemo(() => {
+    return accounts.reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
+  }, [accounts]);
+
+  // Calcul du mois sélectionné via le slider
+  const safeSelectedMonthIndex = Math.min(
+    Math.max(0, selectedMonthIndex),
+    Math.max(0, forecast.monthlyData.length - 1)
+  );
+  const selectedPoint = forecast.monthlyData[safeSelectedMonthIndex];
+  const selectedDateStr = selectedPoint?.dateStr ?? "";
+  const selectedDateLabel = selectedPoint?.dateStr
+    ? formatFrenchMonthYear(selectedPoint.dateStr, "short")
+    : selectedPoint?.label ?? "Sélection";
+
+  // 2. Dépenses prévues calculées sur base de la date sélectionnée (jusqu'à cette date)
+  const activeExpensesUntilDate = useMemo(() => {
+    return allPlannedExpenses.filter(
+      (e) => e.isActive && (!selectedDateStr || e.targetDate <= selectedDateStr)
+    );
+  }, [allPlannedExpenses, selectedDateStr]);
+
+  const plannedExpensesUntilDate = useMemo(() => {
+    return activeExpensesUntilDate.reduce(
+      (sum, e) => sum + (Number(e.amount) || 0),
+      0
+    );
+  }, [activeExpensesUntilDate]);
+
+  const plannedExpensesCount = activeExpensesUntilDate.length;
+
+  // 3. Rentrées d'argent actives calculées sur base de la date sélectionnée (jusqu'à cette date)
+  const activeInflowsUntilDate = useMemo(() => {
+    return inflows.filter(
+      (inf) => inf.isActive && (!selectedDateStr || inf.targetDate <= selectedDateStr)
+    );
+  }, [inflows, selectedDateStr]);
+
+  const inflowsUntilDate = useMemo(() => {
+    return activeInflowsUntilDate.reduce(
+      (sum, inf) => sum + (Number(inf.amount) || 0),
+      0
+    );
+  }, [activeInflowsUntilDate]);
+
+  // 4. Intérêts composés cumulés générés par les livrets jusqu'à cette date
+  const accumulatedInterestUntilDate = selectedPoint?.accumulatedInterest ?? 0;
+
+  // 5. Épargne projetée exacte (capital du point mensuel sélectionné, incluant épargne, apports, rentrées, dépenses et intérêts)
+  const projectedSavings =
+    selectedPoint?.capital ?? (totalSavings - plannedExpensesUntilDate);
 
   return (
     <LinearGradient
@@ -75,17 +151,14 @@ function AuthenticatedDashboard(): React.JSX.Element {
           behavior={Platform.OS === "ios" ? "padding" : undefined}
           style={styles.container}
         >
-          {/* Top Bar Navigation avec Onglets et Actions contextuelles */}
+          {/* Top Bar Navigation (Épurée, sans onglets "Court Terme" / "Projections") */}
           <Header
-            activeTab={activeTab}
-            onSelectTab={setActiveTab}
             onOpenAddSavings={() => setIsAddSavingsVisible(true)}
             onOpenAddExpense={() => setIsAddExpenseVisible(true)}
-            onOpenAddProject={() => setIsAddProjectVisible(true)}
             onOpenAddInflow={() => setIsAddInflowVisible(true)}
           />
 
-          {/* Main Scrollable Dashboard */}
+          {/* Tableau de bord principal à défilement */}
           <ScrollView
             style={styles.scrollView}
             contentContainerStyle={[
@@ -94,67 +167,55 @@ function AuthenticatedDashboard(): React.JSX.Element {
             ]}
             showsVerticalScrollIndicator={false}
           >
-            {activeTab === "current" ? (
-              <>
-                {/* KPI Metric Cards */}
-                <MetricCards
-                  totalSavings={forecast.totalSavings}
-                  accountsCount={accounts.length}
-                  totalActiveExpenses={forecast.totalActiveExpenses}
-                  activeExpensesCount={forecast.activeExpenses.length}
-                  postTotalSavings={forecast.postTotalSavings}
-                />
+            {/* 1. Les 3 informations utiles en haut */}
+            <UnifiedKpiCards
+              totalSavings={totalSavings}
+              plannedExpensesUntilDate={plannedExpensesUntilDate}
+              plannedExpensesCount={plannedExpensesCount}
+              projectedSavings={projectedSavings}
+              selectedDateLabel={selectedDateLabel}
+              inflowsUntilDate={inflowsUntilDate}
+              accumulatedInterestUntilDate={accumulatedInterestUntilDate}
+            />
 
-                {/* Dynamic Forecast Waterfall Banner */}
-                <SimulatorWaterfall
-                  initialSavings={forecast.totalSavings}
-                  expensesAmount={forecast.totalActiveExpenses}
-                  residualSavings={forecast.postTotalSavings}
-                  cushionPct={forecast.cushionPct}
-                  freePct={forecast.freePct}
-                  expensesPct={forecast.expensesPct}
-                  retentionRate={forecast.retentionRate}
-                  safetyCushionTarget={forecast.safetyCushionTarget}
-                  onUpdateSafetyCushionTarget={updateSafetyCushionTarget}
-                />
+            {/* 2. Graphe d'évolution de l'épargne avec slider temporel */}
+            <UnifiedEvolutionChart
+              monthlyData={forecast.monthlyData}
+              selectedIndex={safeSelectedMonthIndex}
+              onSelectIndex={setSelectedMonthIndex}
+              safetyCushionTarget={safetyCushionTarget}
+            />
 
-                {/* Operational Dual Column: Savings (Left) vs Expenses (Right) */}
-                <View style={[styles.columnsRow, !isDesktop && styles.columnsStacked]}>
-                  <View style={[styles.column, isDesktop && { flex: 7 }]}>
-                    <SavingsSection
-                      accounts={accounts}
-                      onOpenAdd={() => setIsAddSavingsVisible(true)}
-                      onUpdateAmount={(id, amount) => updateAccount(id, { amount })}
-                      onRemove={removeAccount}
-                    />
-                  </View>
-
-                  <View style={[styles.column, isDesktop && { flex: 5 }]}>
-                    <ExpensesSection
-                      expenses={expenses}
-                      onOpenAdd={() => setIsAddExpenseVisible(true)}
-                      onToggleActive={toggleExpenseActive}
-                      onRemove={removeExpense}
-                      onUpdateDate={(id, targetDate) => updateExpense(id, { targetDate })}
-                    />
-                  </View>
-                </View>
-              </>
-            ) : (
-              <ProjectionsTab
-                accounts={accounts}
-                safetyCushionTarget={safetyCushionTarget}
-                isAddProjectVisible={isAddProjectVisible}
-                isAddInflowVisible={isAddInflowVisible}
-                onCloseAddProject={() => setIsAddProjectVisible(false)}
-                onCloseAddInflow={() => setIsAddInflowVisible(false)}
-                onOpenAddProject={() => setIsAddProjectVisible(true)}
-                onOpenAddInflow={() => setIsAddInflowVisible(true)}
-              />
-            )}
+            {/* 3. Toutes les sections de gestion en bas (Épargnes, Sous de côté, Dépenses, Rentrées) */}
+            <UnifiedManagementSections
+              accounts={accounts}
+              onOpenAddSavings={() => setIsAddSavingsVisible(true)}
+              onUpdateAccountAmount={(id, amount) =>
+                updateAccount(id, { amount })
+              }
+              onRemoveAccount={removeAccount}
+              monthlySavings={monthlyConfig.monthlyTotal}
+              onUpdateMonthlySavings={updateMonthlyTotal}
+              expenses={allPlannedExpenses}
+              onOpenAddExpense={() => setIsAddExpenseVisible(true)}
+              onToggleExpenseActive={toggleExpenseActive}
+              onRemoveExpense={removeExpense}
+              onUpdateExpenseDate={(id, targetDate) =>
+                updateExpense(id, { targetDate })
+              }
+              inflows={inflows}
+              onOpenAddInflow={() => setIsAddInflowVisible(true)}
+              onToggleInflowActive={toggleInflow}
+              onRemoveInflow={removeInflow}
+              onUpdateInflowDate={(id, targetDate) =>
+                updateInflow(id, { targetDate })
+              }
+              safetyCushionTarget={safetyCushionTarget}
+              onUpdateSafetyCushion={updateSafetyCushionTarget}
+            />
           </ScrollView>
 
-          {/* Modals Court Terme */}
+          {/* Modals de saisie */}
           <AddSavingsModal
             visible={isAddSavingsVisible}
             onClose={() => setIsAddSavingsVisible(false)}
@@ -165,6 +226,12 @@ function AuthenticatedDashboard(): React.JSX.Element {
             visible={isAddExpenseVisible}
             onClose={() => setIsAddExpenseVisible(false)}
             onSubmit={(data) => addExpense({ ...data, isActive: true })}
+          />
+
+          <AddInflowModal
+            visible={isAddInflowVisible}
+            onClose={() => setIsAddInflowVisible(false)}
+            onSubmit={addInflow}
           />
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -231,16 +298,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 14,
     gap: 14,
-  },
-  columnsRow: {
-    flexDirection: "row",
-    gap: 20,
-  },
-  columnsStacked: {
-    flexDirection: "column",
-    gap: 14,
-  },
-  column: {
-    minWidth: 0,
   },
 });

@@ -43,9 +43,10 @@ export function useProjectionEngine(
       initialSavings > 0 ? totalWeightedRate / initialSavings : 0.035; // Default 3.5%
     const monthlyRate = weightedAnnualRate / 12;
 
-    // Current starting reference month: 2026-10
-    const startYear = 2026;
-    const startMonth = 10;
+    // Current starting reference month: based on current date
+    const now = new Date();
+    const startYear = now.getFullYear();
+    const startMonth = now.getMonth() + 1;
 
     const getOffsetMonths = (dateStr: string): number => {
       const { year, month } = parseYearMonth(dateStr);
@@ -60,11 +61,14 @@ export function useProjectionEngine(
 
     const monthlyData: ProjectionMonthPoint[] = [];
 
+    const startMonthItem = MONTHS_FR[startMonth - 1];
+    const startLabel = `${startMonthItem ? startMonthItem.short : ""} ${String(startYear).slice(2)}`;
+
     // Month 0 (Starting point)
     monthlyData.push({
       monthIndex: 0,
       dateStr: toYearMonthString(startYear, startMonth),
-      label: "Oct. 26",
+      label: startLabel,
       capital: Math.round(initialSavings),
       monthlyContribution: 0,
       accumulatedContributions: 0,
