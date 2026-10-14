@@ -116,8 +116,26 @@ function AuthenticatedDashboard(): React.JSX.Element {
 
   const plannedExpensesCount = activeExpensesUntilDate.length;
 
-  // 3. Épargne projetée (= épargne actuelle - dépenses prévues calculées jusqu'à cette date)
-  const projectedSavings = totalSavings - plannedExpensesUntilDate;
+  // 3. Rentrées d'argent actives calculées sur base de la date sélectionnée (jusqu'à cette date)
+  const activeInflowsUntilDate = useMemo(() => {
+    return inflows.filter(
+      (inf) => inf.isActive && (!selectedDateStr || inf.targetDate <= selectedDateStr)
+    );
+  }, [inflows, selectedDateStr]);
+
+  const inflowsUntilDate = useMemo(() => {
+    return activeInflowsUntilDate.reduce(
+      (sum, inf) => sum + (Number(inf.amount) || 0),
+      0
+    );
+  }, [activeInflowsUntilDate]);
+
+  // 4. Intérêts composés cumulés générés par les livrets jusqu'à cette date
+  const accumulatedInterestUntilDate = selectedPoint?.accumulatedInterest ?? 0;
+
+  // 5. Épargne projetée exacte (capital du point mensuel sélectionné, incluant épargne, apports, rentrées, dépenses et intérêts)
+  const projectedSavings =
+    selectedPoint?.capital ?? (totalSavings - plannedExpensesUntilDate);
 
   return (
     <LinearGradient
@@ -156,6 +174,8 @@ function AuthenticatedDashboard(): React.JSX.Element {
               plannedExpensesCount={plannedExpensesCount}
               projectedSavings={projectedSavings}
               selectedDateLabel={selectedDateLabel}
+              inflowsUntilDate={inflowsUntilDate}
+              accumulatedInterestUntilDate={accumulatedInterestUntilDate}
             />
 
             {/* 2. Graphe d'évolution de l'épargne avec slider temporel */}
