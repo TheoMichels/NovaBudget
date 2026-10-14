@@ -58,7 +58,7 @@ function AuthenticatedDashboard(): React.JSX.Element {
     removeInflow,
     updateMonthlyTotal,
   } = useProjections();
-  const { safetyCushionTarget } = useSafetyCushion();
+  const { safetyCushionTarget, updateSafetyCushionTarget } = useSafetyCushion();
 
   // Consolidation des dépenses planifiées (supporte les dépenses et rétro-compatibilité avec les projets futurs)
   const allPlannedExpenses: Expense[] = useMemo(() => {
@@ -210,6 +210,8 @@ function AuthenticatedDashboard(): React.JSX.Element {
               onUpdateInflowDate={(id, targetDate) =>
                 updateInflow(id, { targetDate })
               }
+              safetyCushionTarget={safetyCushionTarget}
+              onUpdateSafetyCushion={updateSafetyCushionTarget}
             />
           </ScrollView>
 
