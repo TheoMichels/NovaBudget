@@ -27,6 +27,9 @@ export interface UnifiedManagementSectionsProps {
   // Sous mis de côté par mois
   monthlySavings: number;
   onUpdateMonthlySavings: (amount: number) => void;
+  // Seuil de sécurité (coussin de précaution)
+  safetyCushionTarget?: number;
+  onUpdateSafetyCushion?: (newTarget: number) => void;
   // Dépenses prévues
   expenses: Expense[];
   onOpenAddExpense: () => void;
@@ -42,6 +45,8 @@ export interface UnifiedManagementSectionsProps {
 }
 
 const MONTHLY_PRESET_SCENARIOS = [400, 800, 1200, 1500] as const;
+const SAFETY_CUSHION_PRESETS = [10000, 15000, 20000, 30000] as const;
+const DEFAULT_SAFETY_CUSHION = 20000;
 
 const EXPENSE_CATEGORY_SHORT_LABELS: Record<ExpenseCategory, string> = {
   voyage: "Voyage",
@@ -59,6 +64,8 @@ export function UnifiedManagementSections({
   onRemoveAccount,
   monthlySavings,
   onUpdateMonthlySavings,
+  safetyCushionTarget = DEFAULT_SAFETY_CUSHION,
+  onUpdateSafetyCushion,
   expenses,
   onOpenAddExpense,
   onToggleExpenseActive,
@@ -82,6 +89,10 @@ export function UnifiedManagementSections({
   // Inline edit state for monthly savings
   const [isEditingMonthlySavings, setIsEditingMonthlySavings] = useState(false);
   const [editMonthlySavingsStr, setEditMonthlySavingsStr] = useState<string>("");
+
+  // Inline edit state for safety cushion target
+  const [isEditingSafetyCushion, setIsEditingSafetyCushion] = useState(false);
+  const [editSafetyCushionStr, setEditSafetyCushionStr] = useState<string>("");
 
   // Date picker modal state for expenses
   const [editingExpenseForDate, setEditingExpenseForDate] = useState<Expense | null>(null);
@@ -143,6 +154,44 @@ export function UnifiedManagementSections({
   const handleApplyStepper = (delta: number) => {
     const nextVal = Math.max(0, monthlySavings + delta);
     onUpdateMonthlySavings(nextVal);
+  };
+
+  // Handlers for safety cushion inline edit
+  const handleStartEditSafetyCushion = () => {
+    setIsEditingSafetyCushion(true);
+    setEditSafetyCushionStr(String(safetyCushionTarget));
+  };
+
+  const handleCancelEditSafetyCushion = () => {
+    setIsEditingSafetyCushion(false);
+    setEditSafetyCushionStr("");
+  };
+
+  const handleConfirmEditSafetyCushion = () => {
+    const cleaned = editSafetyCushionStr.replace(/\s/g, "").replace(",", ".");
+    const parsed = parseFloat(cleaned);
+    if (!isNaN(parsed) && parsed >= 0) {
+      onUpdateSafetyCushion?.(Math.round(parsed));
+    }
+    setIsEditingSafetyCushion(false);
+    setEditSafetyCushionStr("");
+  };
+
+  const handleApplySafetyCushionStepper = (delta: number) => {
+    if (isEditingSafetyCushion) {
+      setIsEditingSafetyCushion(false);
+      setEditSafetyCushionStr("");
+    }
+    const nextVal = Math.max(0, safetyCushionTarget + delta);
+    onUpdateSafetyCushion?.(nextVal);
+  };
+
+  const handleSelectSafetyCushionPreset = (preset: number) => {
+    if (isEditingSafetyCushion) {
+      setIsEditingSafetyCushion(false);
+      setEditSafetyCushionStr("");
+    }
+    onUpdateSafetyCushion?.(preset);
   };
 
   // Handlers for expense date editing
@@ -415,6 +464,161 @@ export function UnifiedManagementSections({
   );
 
   /* ------------------------------------------------------------- */
+  /* BLOCK: Seuil de sécurité (Coussin de précaution)              */
+  /* ------------------------------------------------------------- */
+  const renderSafetyCushionBlock = (): React.JSX.Element => {
+    const isCovered = totalSavings >= safetyCushionTarget;
+
+    return (
+      <View style={styles.cardContainer}>
+        <View style={styles.cardHeader}>
+          <View style={styles.cardHeaderTitleGroup}>
+            <Text style={styles.cardHeaderTitle}>Seuil de sécurité</Text>
+            <View style={styles.badgeShield}>
+              <Text style={styles.badgeShieldText}>🛡️ Coussin</Text>
+            </View>
+          </View>
+
+          <View
+            style={[
+              styles.cushionStatusBadge,
+              isCovered ? styles.cushionStatusBadgeCovered : styles.cushionStatusBadgeUncovered,
+            ]}
+          >
+            <Text
+              style={[
+                styles.cushionStatusBadgeText,
+                isCovered ? styles.cushionStatusBadgeTextCovered : styles.cushionStatusBadgeTextUncovered,
+              ]}
+            >
+              {isCovered ? "✓ Protégé" : "⚠️ À consolider"}
+            </Text>
+          </View>
+        </View>
+
+        <Text style={styles.cushionSubtitle}>
+          Coussin de sécurité pour parer aux imprévus
+        </Text>
+
+        {/* Main Cushion Display Box with Steppers & Presets */}
+        <View style={styles.cushionDisplayBox}>
+          {isEditingSafetyCushion ? (
+            <View style={styles.inlineEditGroup}>
+              <TextInput
+                style={[styles.inlineInput, styles.inlineInputLarge, styles.cushionInputActive]}
+                value={editSafetyCushionStr}
+                onChangeText={setEditSafetyCushionStr}
+                keyboardType="number-pad"
+                autoFocus
+                selectTextOnFocus
+                onSubmitEditing={handleConfirmEditSafetyCushion}
+                placeholder="20000"
+                placeholderTextColor={colors.textMuted}
+              />
+              <Pressable
+                style={[styles.inlineActionBtn, styles.cushionInlineSaveBtn, cursorPointer]}
+                onPress={handleConfirmEditSafetyCushion}
+                hitSlop={6}
+                accessibilityLabel="Valider le montant du coussin"
+              >
+                <Text style={styles.cushionInlineSaveBtnText}>✓</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.inlineActionBtn, styles.inlineCancelBtn, cursorPointer]}
+                onPress={handleCancelEditSafetyCushion}
+                hitSlop={6}
+                accessibilityLabel="Annuler la modification"
+              >
+                <Text style={styles.inlineCancelBtnText}>✕</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <Pressable
+              style={[styles.monthlyHeroAmountGroup, cursorPointer]}
+              onPress={handleStartEditSafetyCushion}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel="Modifier le seuil de sécurité"
+            >
+              <Text
+                style={styles.cushionHeroAmount}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+              >
+                {formatEuro(safetyCushionTarget)}
+              </Text>
+              <Text style={styles.pencilIcon}>✎</Text>
+            </Pressable>
+          )}
+
+          {/* Stepper Buttons Row */}
+          <View style={styles.steppersRow}>
+            <Pressable
+              style={[styles.stepperButton, cursorPointer]}
+              onPress={() => handleApplySafetyCushionStepper(-5000)}
+              accessibilityLabel="Diminuer le seuil de 5 000€"
+            >
+              <Text style={styles.stepperButtonText}>-5 000 €</Text>
+            </Pressable>
+
+            <Pressable
+              style={[styles.stepperButton, cursorPointer]}
+              onPress={() => handleApplySafetyCushionStepper(-1000)}
+              accessibilityLabel="Diminuer le seuil de 1 000€"
+            >
+              <Text style={styles.stepperButtonText}>-1 000 €</Text>
+            </Pressable>
+
+            <Pressable
+              style={[styles.stepperButton, cursorPointer]}
+              onPress={() => handleApplySafetyCushionStepper(+1000)}
+              accessibilityLabel="Augmenter le seuil de 1 000€"
+            >
+              <Text style={styles.stepperButtonText}>+1 000 €</Text>
+            </Pressable>
+
+            <Pressable
+              style={[styles.stepperButton, cursorPointer]}
+              onPress={() => handleApplySafetyCushionStepper(+5000)}
+              accessibilityLabel="Augmenter le seuil de 5 000€"
+            >
+              <Text style={styles.stepperButtonText}>+5 000 €</Text>
+            </Pressable>
+          </View>
+
+          {/* Preset Scenarios */}
+          <View style={styles.scenarioPresetsRow}>
+            {SAFETY_CUSHION_PRESETS.map((preset) => {
+              const isSelected = safetyCushionTarget === preset;
+              return (
+                <Pressable
+                  key={preset}
+                  style={[
+                    styles.presetChip,
+                    isSelected && styles.cushionPresetChipActive,
+                    cursorPointer,
+                  ]}
+                  onPress={() => handleSelectSafetyCushionPreset(preset)}
+                  accessibilityLabel={`Définir le seuil à ${formatEuro(preset)}`}
+                >
+                  <Text
+                    style={[
+                      styles.presetChipText,
+                      isSelected && styles.presetChipTextActive,
+                    ]}
+                  >
+                    {formatEuro(preset)}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      </View>
+    );
+  };
+
+  /* ------------------------------------------------------------- */
   /* BLOCK C: Dépenses prévues                                     */
   /* ------------------------------------------------------------- */
   const renderExpensesBlock = (): React.JSX.Element => (
@@ -647,10 +851,11 @@ export function UnifiedManagementSections({
     <View style={styles.rootWrapper}>
       {/* Structural layout: 2 columns on Desktop, vertically stacked on Mobile */}
       <View style={[styles.mainLayout, isDesktop ? styles.layoutRow : styles.layoutStack]}>
-        {/* Left Column (Desktop) or First Half (Mobile): Épargnes + Sous de côté */}
+        {/* Left Column (Desktop) or First Half (Mobile): Épargnes + Sous de côté + Seuil de sécurité */}
         <View style={[styles.columnGroup, isDesktop && styles.columnGroupDesktop]}>
           {renderSavingsBlock()}
           {renderMonthlySavingsBlock()}
+          {renderSafetyCushionBlock()}
         </View>
 
         {/* Right Column (Desktop) or Second Half (Mobile): Dépenses + Rentrées */}
@@ -1234,6 +1439,76 @@ const styles = StyleSheet.create({
   presetChipTextActive: {
     color: "#FFFFFF",
     fontWeight: "700",
+  },
+
+  /* Safety Cushion Section */
+  badgeShield: {
+    backgroundColor: "rgba(245, 158, 11, 0.12)",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  badgeShieldText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#D97706",
+  },
+  cushionStatusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  cushionStatusBadgeCovered: {
+    backgroundColor: colors.primarySoft,
+  },
+  cushionStatusBadgeUncovered: {
+    backgroundColor: colors.warningSoft,
+  },
+  cushionStatusBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  cushionStatusBadgeTextCovered: {
+    color: colors.primary,
+  },
+  cushionStatusBadgeTextUncovered: {
+    color: colors.warning,
+  },
+  cushionSubtitle: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 12,
+    marginTop: -4,
+  },
+  cushionDisplayBox: {
+    backgroundColor: "#FDFCF8",
+    borderRadius: 16,
+    padding: 16,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(245, 158, 11, 0.18)",
+    gap: 12,
+  },
+  cushionHeroAmount: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: colors.textPrimary,
+    letterSpacing: -0.5,
+  },
+  cushionInputActive: {
+    borderColor: colors.warning,
+  },
+  cushionInlineSaveBtn: {
+    backgroundColor: colors.warningSoft,
+  },
+  cushionInlineSaveBtnText: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: colors.warning,
+  },
+  cushionPresetChipActive: {
+    backgroundColor: colors.warning,
+    borderColor: colors.warning,
   },
 
   /* Modal Styles */
