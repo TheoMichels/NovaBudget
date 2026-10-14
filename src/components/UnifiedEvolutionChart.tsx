@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
   GestureResponderEvent,
   LayoutChangeEvent,
@@ -6,6 +6,7 @@ import {
   PanResponderGestureState,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -27,6 +28,16 @@ import { cursorPointer } from "../theme/webCursor";
 import { formatEuro } from "../hooks/useForecast";
 import { ProjectionMonthPoint } from "../types/projection";
 import { formatFrenchMonthYear, getRelativeMonthDescription } from "../utils/dateUtils";
+
+export interface CumulativeProjectionEvent {
+  id: string;
+  type: "project" | "inflow";
+  title: string;
+  amount: number;
+  dateStr: string;
+  monthLabel: string;
+  monthIndex: number;
+}
 
 export interface UnifiedEvolutionChartProps {
   monthlyData: ProjectionMonthPoint[]; // Données mois par mois (dateStr, label, capital, etc.)
@@ -95,11 +106,28 @@ export function UnifiedEvolutionChart({
     })
   ).current;
 
-  // Step button handler
-  const handleStepDelta = (delta: number) => {
-    const newIdx = Math.max(0, Math.min(maxIndex, safeSelectedIndex + delta));
-    onSelectIndex(newIdx);
-  };
+  // Cumulative events from month 0 up to safeSelectedIndex inclusive
+  const cumulativeEvents = useMemo<CumulativeProjectionEvent[]>(() => {
+    const list: CumulativeProjectionEvent[] = [];
+    const limit = Math.min(safeSelectedIndex + 1, monthlyData.length);
+    for (let i = 0; i < limit; i++) {
+      const month = monthlyData[i];
+      if (month && month.events && month.events.length > 0) {
+        for (const ev of month.events) {
+          list.push({
+            id: ev.id,
+            type: ev.type,
+            title: ev.title,
+            amount: ev.amount,
+            dateStr: month.dateStr,
+            monthLabel: month.label,
+            monthIndex: month.monthIndex,
+          });
+        }
+      }
+    }
+    return list;
+  }, [monthlyData, safeSelectedIndex]);
 
   // Date formatting for the active point
   const formattedMonthYear = selectedPoint?.dateStr
@@ -270,37 +298,6 @@ export function UnifiedEvolutionChart({
         </View>
       </View>
 
-      {/* Events pills for selected month if any */}
-      {selectedPoint && selectedPoint.events.length > 0 && (
-        <View style={styles.eventsBanner}>
-          <Text style={styles.eventsBannerTitle}>Événements du mois :</Text>
-          <View style={styles.eventsPillsRow}>
-            {selectedPoint.events.map((ev) => (
-              <View
-                key={ev.id}
-                style={[
-                  styles.eventPill,
-                  ev.type === "project"
-                    ? styles.eventPillProject
-                    : styles.eventPillInflow,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.eventPillText,
-                    ev.type === "project"
-                      ? styles.eventPillTextProject
-                      : styles.eventPillTextInflow,
-                  ]}
-                >
-                  {ev.type === "project" ? "🚗 -" : "⚡ +"}{formatEuro(ev.amount)} ({ev.title})
-                </Text>
-              </View>
-            ))}
-          </View>
-        </View>
-      )}
-
       {/* 2. Interactive Time Slider Control */}
       <View style={styles.sliderSection}>
         <View style={styles.sliderHeaderRow}>
@@ -373,130 +370,13 @@ export function UnifiedEvolutionChart({
             {monthlyData[maxIndex]?.label ?? `+${maxIndex}m`}
           </Text>
         </View>
-
-        {/* 3. Step buttons row: '-1 mois', '+1 mois', '+6 mois', '+1 an' */}
-        <View style={styles.stepButtonsRow}>
-          {/* Quick jump to Today */}
-          <Pressable
-            style={({ pressed }) => [
-              styles.stepBtn,
-              cursorPointer,
-              safeSelectedIndex === 0 && styles.stepBtnDisabled,
-              pressed && styles.stepBtnPressed,
-            ]}
-            onPress={() => onSelectIndex(0)}
-            disabled={safeSelectedIndex === 0}
-            accessibilityRole="button"
-            accessibilityLabel="Revenir à aujourd'hui"
-          >
-            <Text
-              style={[
-                styles.stepBtnText,
-                safeSelectedIndex === 0 && styles.stepBtnTextDisabled,
-              ]}
-            >
-              Aujourd'hui
-            </Text>
-          </Pressable>
-
-          {/* -1 mois */}
-          <Pressable
-            style={({ pressed }) => [
-              styles.stepBtn,
-              cursorPointer,
-              safeSelectedIndex === 0 && styles.stepBtnDisabled,
-              pressed && styles.stepBtnPressed,
-            ]}
-            onPress={() => handleStepDelta(-1)}
-            disabled={safeSelectedIndex === 0}
-            accessibilityRole="button"
-            accessibilityLabel="Reculer d'un mois"
-          >
-            <Text
-              style={[
-                styles.stepBtnText,
-                safeSelectedIndex === 0 && styles.stepBtnTextDisabled,
-              ]}
-            >
-              -1 mois
-            </Text>
-          </Pressable>
-
-          {/* +1 mois */}
-          <Pressable
-            style={({ pressed }) => [
-              styles.stepBtn,
-              styles.stepBtnPrimary,
-              cursorPointer,
-              safeSelectedIndex >= maxIndex && styles.stepBtnDisabled,
-              pressed && styles.stepBtnPressed,
-            ]}
-            onPress={() => handleStepDelta(1)}
-            disabled={safeSelectedIndex >= maxIndex}
-            accessibilityRole="button"
-            accessibilityLabel="Avancer d'un mois"
-          >
-            <Text
-              style={[
-                styles.stepBtnText,
-                styles.stepBtnTextPrimary,
-                safeSelectedIndex >= maxIndex && styles.stepBtnTextDisabled,
-              ]}
-            >
-              +1 mois
-            </Text>
-          </Pressable>
-
-          {/* +6 mois */}
-          <Pressable
-            style={({ pressed }) => [
-              styles.stepBtn,
-              cursorPointer,
-              safeSelectedIndex >= maxIndex && styles.stepBtnDisabled,
-              pressed && styles.stepBtnPressed,
-            ]}
-            onPress={() => handleStepDelta(6)}
-            disabled={safeSelectedIndex >= maxIndex}
-            accessibilityRole="button"
-            accessibilityLabel="Avancer de 6 mois"
-          >
-            <Text
-              style={[
-                styles.stepBtnText,
-                safeSelectedIndex >= maxIndex && styles.stepBtnTextDisabled,
-              ]}
-            >
-              +6 mois
-            </Text>
-          </Pressable>
-
-          {/* +1 an */}
-          <Pressable
-            style={({ pressed }) => [
-              styles.stepBtn,
-              cursorPointer,
-              safeSelectedIndex >= maxIndex && styles.stepBtnDisabled,
-              pressed && styles.stepBtnPressed,
-            ]}
-            onPress={() => handleStepDelta(12)}
-            disabled={safeSelectedIndex >= maxIndex}
-            accessibilityRole="button"
-            accessibilityLabel="Avancer d'un an"
-          >
-            <Text
-              style={[
-                styles.stepBtnText,
-                safeSelectedIndex >= maxIndex && styles.stepBtnTextDisabled,
-              ]}
-            >
-              +1 an
-            </Text>
-          </Pressable>
-        </View>
       </View>
 
-      {/* 4. Interactive SVG Graph with Emerald Gradient (#0D9488) */}
-      <Pressable onPress={handleChartPress} style={styles.chartWrapper}>
+      {/* 3. Interactive SVG Graph with Emerald Gradient (#0D9488) */}
+      <Pressable
+        onPress={handleChartPress}
+        style={[styles.chartWrapper, cursorPointer]}
+      >
         <Svg width={containerWidth} height={chartHeight}>
           <Defs>
             {/* Emerald Gradient */}
@@ -655,6 +535,115 @@ export function UnifiedEvolutionChart({
           })}
         </Svg>
       </Pressable>
+
+      {/* 4. Events timeline up to selected date (discreet, zero layout shift) */}
+      <View style={styles.eventsSection}>
+        <View style={styles.eventsSectionHeader}>
+          <View style={styles.eventsSectionTitleRow}>
+            <Text style={styles.eventsSectionTitle} numberOfLines={1}>
+              Événements jusqu'à ce mois
+            </Text>
+            {cumulativeEvents.length > 0 && (
+              <View style={styles.eventsBadgeCount}>
+                <Text style={styles.eventsBadgeCountText}>
+                  {cumulativeEvents.length}
+                </Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.eventsSectionDateHint} numberOfLines={1}>
+            {cumulativeEvents.length > 0
+              ? `Jusqu'à ${formattedMonthYear}`
+              : "Aucun impact prévu"}
+          </Text>
+        </View>
+
+        <View style={styles.eventsContentSlot}>
+          {cumulativeEvents.length === 0 ? (
+            <View style={styles.emptyEventsBox}>
+              <Text style={styles.emptyEventsIcon}>🗓️</Text>
+              <Text style={styles.emptyEventsText} numberOfLines={1}>
+                Aucun événement planifié jusqu'à cette date
+              </Text>
+            </View>
+          ) : (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.eventsScrollView}
+              contentContainerStyle={styles.eventsScrollContent}
+            >
+              {cumulativeEvents.map((ev, idx) => {
+                const isProject = ev.type === "project";
+                return (
+                  <View
+                    key={`${ev.id}-${ev.monthIndex}-${idx}`}
+                    style={[
+                      styles.eventChip,
+                      isProject
+                        ? styles.eventChipProject
+                        : styles.eventChipInflow,
+                    ]}
+                  >
+                    {/* Date Badge */}
+                    <View
+                      style={[
+                        styles.eventChipDateBadge,
+                        isProject
+                          ? styles.eventChipDateBadgeProject
+                          : styles.eventChipDateBadgeInflow,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.eventChipDateText,
+                          isProject
+                            ? styles.eventChipDateTextProject
+                            : styles.eventChipDateTextInflow,
+                        ]}
+                      >
+                        {ev.monthLabel}
+                      </Text>
+                    </View>
+
+                    {/* Type Icon */}
+                    <Text style={styles.eventChipIcon}>
+                      {isProject ? "🚗" : "⚡"}
+                    </Text>
+
+                    {/* Amount */}
+                    <Text
+                      style={[
+                        styles.eventChipAmount,
+                        isProject
+                          ? styles.eventChipAmountProject
+                          : styles.eventChipAmountInflow,
+                      ]}
+                    >
+                      {isProject
+                        ? `-${formatEuro(ev.amount)}`
+                        : `+${formatEuro(ev.amount)}`}
+                    </Text>
+
+                    {/* Title */}
+                    <Text
+                      style={[
+                        styles.eventChipTitle,
+                        isProject
+                          ? styles.eventChipTitleProject
+                          : styles.eventChipTitleInflow,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {ev.title}
+                    </Text>
+                  </View>
+                );
+              })}
+            </ScrollView>
+          )}
+        </View>
+      </View>
     </View>
   );
 }
@@ -747,62 +736,19 @@ const styles = StyleSheet.create({
   diffBadgeTextNegative: {
     color: colors.danger,
   },
-  eventsBanner: {
-    backgroundColor: "#F8FAFC",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    borderRadius: 14,
-    padding: 10,
-    marginBottom: 16,
-  },
-  eventsBannerTitle: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: colors.textSecondary,
-    marginBottom: 6,
-  },
-  eventsPillsRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-  },
-  eventPill: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  eventPillProject: {
-    backgroundColor: colors.warningSoft,
-    borderColor: "rgba(245, 158, 11, 0.3)",
-  },
-  eventPillInflow: {
-    backgroundColor: colors.inflowSoft,
-    borderColor: "rgba(37, 99, 235, 0.3)",
-  },
-  eventPillText: {
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  eventPillTextProject: {
-    color: "#B45309",
-  },
-  eventPillTextInflow: {
-    color: "#1D4ED8",
-  },
   sliderSection: {
     backgroundColor: "#F8FAFC",
     borderWidth: 1,
     borderColor: "#E2E8F0",
     borderRadius: 18,
     padding: 14,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   sliderHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 12,
+    marginBottom: 10,
   },
   sliderLabel: {
     fontSize: 12,
@@ -856,59 +802,158 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     marginTop: 4,
-    marginBottom: 12,
+    marginBottom: 0,
   },
   sliderMinMaxText: {
     fontSize: 10,
     fontWeight: "600",
     color: colors.textMuted,
   },
-  stepButtonsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  stepBtn: {
-    flexGrow: 1,
-    minWidth: 58,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#CBD5E1",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 8,
-  },
-  stepBtnPrimary: {
-    borderColor: "#0D9488",
-    backgroundColor: "rgba(13, 148, 136, 0.08)",
-  },
-  stepBtnPressed: {
-    opacity: 0.75,
-  },
-  stepBtnDisabled: {
-    opacity: 0.4,
-    backgroundColor: "#F1F5F9",
-    borderColor: "#E2E8F0",
-  },
-  stepBtnText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: colors.textPrimary,
-  },
-  stepBtnTextPrimary: {
-    color: "#0D9488",
-  },
-  stepBtnTextDisabled: {
-    color: colors.textMuted,
-  },
   chartWrapper: {
     width: "100%",
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 4,
+    marginTop: 2,
     overflow: "hidden",
+  },
+  eventsSection: {
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 8,
+    height: 76,
+    justifyContent: "center",
+  },
+  eventsSectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 6,
+  },
+  eventsSectionTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    marginRight: 8,
+  },
+  eventsSectionTitle: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.textSecondary,
+    letterSpacing: 0.1,
+  },
+  eventsBadgeCount: {
+    backgroundColor: "#E2E8F0",
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 8,
+    marginLeft: 6,
+  },
+  eventsBadgeCountText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: colors.brandMuted,
+  },
+  eventsSectionDateHint: {
+    fontSize: 11,
+    fontWeight: "500",
+    color: colors.textMuted,
+    flexShrink: 1,
+  },
+  eventsContentSlot: {
+    height: 32,
+    justifyContent: "center",
+  },
+  eventsScrollView: {
+    height: 32,
+  },
+  eventsScrollContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingRight: 8,
+  },
+  emptyEventsBox: {
+    height: 32,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 4,
+  },
+  emptyEventsIcon: {
+    fontSize: 12,
+    marginRight: 6,
+    opacity: 0.75,
+  },
+  emptyEventsText: {
+    fontSize: 11,
+    fontWeight: "500",
+    color: colors.textMuted,
+  },
+  eventChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    height: 30,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginRight: 6,
+  },
+  eventChipProject: {
+    backgroundColor: "#FEF3C7",
+    borderColor: "rgba(245, 158, 11, 0.35)",
+  },
+  eventChipInflow: {
+    backgroundColor: "#DBEAFE",
+    borderColor: "rgba(37, 99, 235, 0.35)",
+  },
+  eventChipDateBadge: {
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 5,
+    marginRight: 5,
+  },
+  eventChipDateBadgeProject: {
+    backgroundColor: "rgba(245, 158, 11, 0.18)",
+  },
+  eventChipDateBadgeInflow: {
+    backgroundColor: "rgba(37, 99, 235, 0.15)",
+  },
+  eventChipDateText: {
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  eventChipDateTextProject: {
+    color: "#B45309",
+  },
+  eventChipDateTextInflow: {
+    color: "#1D4ED8",
+  },
+  eventChipIcon: {
+    fontSize: 11,
+    marginRight: 4,
+  },
+  eventChipAmount: {
+    fontSize: 11,
+    fontWeight: "800",
+    marginRight: 6,
+  },
+  eventChipAmountProject: {
+    color: "#B45309",
+  },
+  eventChipAmountInflow: {
+    color: "#1D4ED8",
+  },
+  eventChipTitle: {
+    fontSize: 11,
+    fontWeight: "600",
+    maxWidth: 160,
+  },
+  eventChipTitleProject: {
+    color: "#78350F",
+  },
+  eventChipTitleInflow: {
+    color: "#1E3A8A",
   },
 });
