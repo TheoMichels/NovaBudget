@@ -14,9 +14,9 @@ import { cursorPointer } from "../theme/webCursor";
 import { useAuth } from "../hooks/useAuth";
 import { AuthModal } from "./AuthModal";
 
-interface HeaderProps {
-  activeTab: "current" | "projections";
-  onSelectTab: (tab: "current" | "projections") => void;
+export interface HeaderProps {
+  activeTab?: "current" | "projections";
+  onSelectTab?: (tab: "current" | "projections") => void;
   onOpenAddSavings?: () => void;
   onOpenAddExpense?: () => void;
   onOpenAddProject?: () => void;
@@ -25,8 +25,8 @@ interface HeaderProps {
 }
 
 export function Header({
-  activeTab,
-  onSelectTab,
+  activeTab: _activeTab,
+  onSelectTab: _onSelectTab,
   onOpenAddSavings: _onOpenAddSavings,
   onOpenAddExpense: _onOpenAddExpense,
   onOpenAddProject: _onOpenAddProject,
@@ -47,9 +47,13 @@ export function Header({
     }
   };
 
-  const userDisplayLabel = isMobile
-    ? `🟢 ${user?.email?.split("@")[0] ?? "Connecté"}`
-    : `🟢 ${user?.email ?? "Connecté"}`;
+  const userDisplayLabel = user?.email
+    ? isNarrow
+      ? `🟢 ${user.email.split("@")[0].slice(0, 8)}…`
+      : isMobile
+      ? `🟢 ${user.email.split("@")[0]}`
+      : `🟢 ${user.email}`
+    : "🟢 Démo";
 
   const headerDynamicStyle: ViewStyle = {
     backgroundColor: isMobile ? "#FFFFFF" : colors.panel,
@@ -60,59 +64,26 @@ export function Header({
 
   const renderBrand = () => (
     <View style={styles.brandRow}>
-      <View style={styles.logoBadge}>
+      <View style={[styles.logoBadge, isNarrow && styles.logoBadgeNarrow]}>
         <Image
           source={require("../../assets/logo.png")}
-          style={styles.logoImage}
+          style={[styles.logoImage, isNarrow && styles.logoImageNarrow]}
           resizeMode="cover"
         />
       </View>
-      <View style={{ flexShrink: 1 }}>
-        <Text style={styles.brandTitle} numberOfLines={1}>NovaBudget</Text>
-        <Text style={styles.brandSubtitle} numberOfLines={1}>Épargne & Prévisions</Text>
+      <View style={styles.brandTextCol}>
+        <Text
+          style={[styles.brandTitle, isNarrow && styles.brandTitleNarrow]}
+          numberOfLines={1}
+        >
+          NovaBudget
+        </Text>
+        {!isNarrow && (
+          <Text style={styles.brandSubtitle} numberOfLines={1}>
+            Épargne & Prévisions
+          </Text>
+        )}
       </View>
-    </View>
-  );
-
-  const renderTabs = () => (
-    <View style={[styles.tabsRow, isMobile && styles.tabsRowMobile]}>
-      <Pressable
-        style={[
-          styles.tabBtn,
-          isMobile && styles.tabBtnMobile,
-          cursorPointer,
-          activeTab === "current" && styles.tabBtnActive,
-        ]}
-        onPress={() => onSelectTab("current")}
-      >
-        <Text
-          style={[
-            styles.tabBtnText,
-            activeTab === "current" && styles.tabBtnTextActive,
-          ]}
-        >
-          📊 Court Terme
-        </Text>
-      </Pressable>
-
-      <Pressable
-        style={[
-          styles.tabBtn,
-          isMobile && styles.tabBtnMobile,
-          cursorPointer,
-          activeTab === "projections" && styles.tabBtnActive,
-        ]}
-        onPress={() => onSelectTab("projections")}
-      >
-        <Text
-          style={[
-            styles.tabBtnText,
-            activeTab === "projections" && styles.tabBtnTextActive,
-          ]}
-        >
-          🚀 Projections
-        </Text>
-      </Pressable>
     </View>
   );
 
@@ -120,7 +91,11 @@ export function Header({
     <View style={styles.actionsRow}>
       {/* Cloud Auth Status Badge */}
       <Pressable
-        style={[styles.cloudBadge, cursorPointer]}
+        style={[
+          styles.cloudBadge,
+          isNarrow && styles.cloudBadgeNarrow,
+          cursorPointer,
+        ]}
         onPress={handleOpenAuth}
         accessibilityRole="button"
         accessibilityLabel="Gérer mon compte et synchronisation"
@@ -138,7 +113,7 @@ export function Header({
 
       {/* Bouton direct de déconnexion rapide */}
       <Pressable
-        style={[styles.btnSignOut, cursorPointer]}
+        style={[styles.btnSignOut, isNarrow && styles.btnSignOutNarrow, cursorPointer]}
         onPress={() => signOut()}
         accessibilityRole="button"
         accessibilityLabel="Se déconnecter"
@@ -159,21 +134,8 @@ export function Header({
           isMobile && styles.headerMobile,
         ]}
       >
-        {isMobile ? (
-          <>
-            <View style={styles.mobileTopBar}>
-              {renderBrand()}
-              {renderActions()}
-            </View>
-            {renderTabs()}
-          </>
-        ) : (
-          <>
-            {renderBrand()}
-            {renderTabs()}
-            {renderActions()}
-          </>
-        )}
+        {renderBrand()}
+        {renderActions()}
       </View>
 
       {/* Modal d'authentification et de synchronisation */}
@@ -191,32 +153,27 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
     paddingHorizontal: 20,
-    paddingVertical: 14,
+    paddingVertical: 12,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    flexWrap: "wrap",
-    gap: 12,
     zIndex: 10,
+    ...shadows.sm,
   },
   headerMobile: {
     backgroundColor: "#FFFFFF",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 10,
-  },
-  mobileTopBar: {
-    width: "100%",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
   brandRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
     flexShrink: 1,
+  },
+  brandTextCol: {
+    flexShrink: 1,
+    justifyContent: "center",
   },
   logoBadge: {
     width: 38,
@@ -226,16 +183,29 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  logoBadgeNarrow: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+  },
   logoImage: {
     width: 38,
     height: 38,
     borderRadius: 12,
+  },
+  logoImageNarrow: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
   },
   brandTitle: {
     fontSize: 18,
     fontWeight: "800",
     color: colors.brand,
     letterSpacing: -0.3,
+  },
+  brandTitleNarrow: {
+    fontSize: 16,
   },
   brandSubtitle: {
     fontSize: 11,
@@ -252,7 +222,7 @@ const styles = StyleSheet.create({
   },
   cloudBadge: {
     paddingHorizontal: 10,
-    paddingVertical: 7,
+    paddingVertical: 6,
     borderRadius: 12,
     borderWidth: 1,
     backgroundColor: colors.positiveSoft,
@@ -261,6 +231,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  cloudBadgeNarrow: {
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 10,
+  },
   cloudBadgeText: {
     fontSize: 11,
     fontWeight: "700",
@@ -268,62 +243,30 @@ const styles = StyleSheet.create({
     maxWidth: 160,
   },
   cloudBadgeTextMobile: {
-    maxWidth: 100,
+    maxWidth: 110,
   },
   cloudBadgeTextNarrow: {
-    maxWidth: 80,
+    maxWidth: 84,
+    fontSize: 10,
   },
   btnSignOut: {
     backgroundColor: "rgba(220, 38, 38, 0.08)",
     borderWidth: 1,
-    borderColor: "rgba(220, 38, 38, 0.25)",
+    borderColor: "rgba(220, 38, 38, 0.22)",
     paddingHorizontal: 10,
-    paddingVertical: 7,
+    paddingVertical: 6,
     borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
+  },
+  btnSignOutNarrow: {
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 10,
   },
   btnSignOutText: {
     color: colors.danger,
     fontSize: 11,
     fontWeight: "700",
-  },
-  tabsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(15, 41, 34, 0.05)",
-    padding: 3,
-    borderRadius: 14,
-    gap: 3,
-  },
-  tabsRowMobile: {
-    width: "100%",
-  },
-  tabBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 11,
-    gap: 6,
-  },
-  tabBtnMobile: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 8,
-  },
-  tabBtnActive: {
-    backgroundColor: colors.primary,
-    ...shadows.sm,
-  },
-  tabBtnText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: colors.textSecondary,
-    textAlign: "center",
-  },
-  tabBtnTextActive: {
-    color: "#FFFFFF",
   },
 });

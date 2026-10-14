@@ -1,0 +1,914 @@
+import React, { useRef, useState } from "react";
+import {
+  GestureResponderEvent,
+  LayoutChangeEvent,
+  PanResponder,
+  PanResponderGestureState,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  ViewStyle,
+  useWindowDimensions,
+} from "react-native";
+import Svg, {
+  Circle,
+  Defs,
+  G,
+  Line,
+  LinearGradient as SvgLinearGradient,
+  Path,
+  Stop,
+  Text as SvgText,
+} from "react-native-svg";
+import { colors, shadows } from "../theme/colors";
+import { cursorPointer } from "../theme/webCursor";
+import { formatEuro } from "../hooks/useForecast";
+import { ProjectionMonthPoint } from "../types/projection";
+import { formatFrenchMonthYear, getRelativeMonthDescription } from "../utils/dateUtils";
+
+export interface UnifiedEvolutionChartProps {
+  monthlyData: ProjectionMonthPoint[]; // Données mois par mois (dateStr, label, capital, etc.)
+  selectedIndex: number; // Mois actuellement sélectionné (0 = date du jour)
+  onSelectIndex: (index: number) => void; // Callback pour changer de mois
+  safetyCushionTarget?: number;
+}
+
+export function UnifiedEvolutionChart({
+  monthlyData,
+  selectedIndex,
+  onSelectIndex,
+  safetyCushionTarget,
+}: UnifiedEvolutionChartProps) {
+  const { width } = useWindowDimensions();
+  const isMobile = width < 768;
+  const isNarrow = width < 400;
+
+  const [containerWidth, setContainerWidth] = useState<number>(600);
+  const [sliderTrackWidth, setSliderTrackWidth] = useState<number>(300);
+  const sliderTrackWidthRef = useRef<number>(300);
+
+  const maxIndex = Math.max(0, monthlyData.length - 1);
+  const safeSelectedIndex = Math.min(Math.max(0, selectedIndex), maxIndex);
+  const selectedPoint = monthlyData[safeSelectedIndex] ?? null;
+  const initialPoint = monthlyData[0] ?? null;
+
+  const handleContainerLayout = (e: LayoutChangeEvent) => {
+    const w = e.nativeEvent.layout.width;
+    if (w > 0) {
+      setContainerWidth(w);
+    }
+  };
+
+  const handleSliderTrackLayout = (e: LayoutChangeEvent) => {
+    const w = e.nativeEvent.layout.width;
+    if (w > 0) {
+      setSliderTrackWidth(w);
+      sliderTrackWidthRef.current = w;
+    }
+  };
+
+  // Slider interaction handlers
+  const updateIndexFromTrackOffset = (offsetX: number) => {
+    const trackWidth = sliderTrackWidthRef.current;
+    if (trackWidth <= 0 || maxIndex <= 0) return;
+    const clampedX = Math.max(0, Math.min(trackWidth, offsetX));
+    const ratio = clampedX / trackWidth;
+    const targetIndex = Math.round(ratio * maxIndex);
+    onSelectIndex(targetIndex);
+  };
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: (evt: GestureResponderEvent) => {
+        updateIndexFromTrackOffset(evt.nativeEvent.locationX);
+      },
+      onPanResponderMove: (
+        evt: GestureResponderEvent,
+        _gestureState: PanResponderGestureState
+      ) => {
+        updateIndexFromTrackOffset(evt.nativeEvent.locationX);
+      },
+    })
+  ).current;
+
+  // Step button handler
+  const handleStepDelta = (delta: number) => {
+    const newIdx = Math.max(0, Math.min(maxIndex, safeSelectedIndex + delta));
+    onSelectIndex(newIdx);
+  };
+
+  // Date formatting for the active point
+  const formattedMonthYear = selectedPoint?.dateStr
+    ? formatFrenchMonthYear(selectedPoint.dateStr, "full")
+    : selectedPoint?.label ?? "";
+
+  const relativeText =
+    safeSelectedIndex === 0
+      ? "Aujourd'hui"
+      : selectedPoint?.dateStr
+      ? getRelativeMonthDescription(selectedPoint.dateStr)
+      : `dans ${safeSelectedIndex} mois`;
+
+  // Net difference vs Month 0
+  const capitalDiff =
+    selectedPoint && initialPoint
+      ? selectedPoint.capital - initialPoint.capital
+      : 0;
+  const capitalDiffPct =
+    initialPoint && initialPoint.capital > 0
+      ? ((capitalDiff / initialPoint.capital) * 100).toFixed(1)
+      : "0.0";
+
+  // SVG Chart geometry
+  const chartHeight = isMobile ? 220 : 250;
+  const padding = {
+    top: 24,
+    right: 24,
+    bottom: 34,
+    left: isNarrow ? 44 : 54,
+  };
+  const innerWidth = Math.max(100, containerWidth - padding.left - padding.right);
+  const innerHeight = Math.max(60, chartHeight - padding.top - padding.bottom);
+
+  const capitals = monthlyData.map((d) => d.capital);
+  const maxVal = Math.max(
+    (safetyCushionTarget ?? 0) * 1.15,
+    ...(capitals.length > 0 ? capitals : [20000]),
+    10000
+  ) * 1.08;
+
+  const minVal = Math.max(
+    0,
+    Math.min(
+      safetyCushionTarget ? safetyCushionTarget * 0.8 : Infinity,
+      ...(capitals.length > 0 ? capitals : [0])
+    ) * 0.92
+  );
+
+  const valueRange = maxVal - minVal || 1;
+
+  const getY = (val: number): number => {
+    return padding.top + innerHeight - ((val - minVal) / valueRange) * innerHeight;
+  };
+
+  const getX = (idx: number): number => {
+    const count = Math.max(1, maxIndex);
+    return padding.left + (idx / count) * innerWidth;
+  };
+
+  // Build SVG smooth path
+  let pathD = "";
+  let areaD = `M ${getX(0)} ${padding.top + innerHeight} `;
+
+  monthlyData.forEach((pt, i) => {
+    const x = getX(i);
+    const y = getY(pt.capital);
+    if (i === 0) {
+      pathD += `M ${x} ${y} `;
+      areaD += `L ${x} ${y} `;
+    } else {
+      const prevX = getX(i - 1);
+      const prevY = getY(monthlyData[i - 1].capital);
+      const cpX = prevX + (x - prevX) / 2;
+      pathD += `C ${cpX} ${prevY}, ${cpX} ${y}, ${x} ${y} `;
+      areaD += `C ${cpX} ${prevY}, ${cpX} ${y}, ${x} ${y} `;
+    }
+  });
+
+  if (monthlyData.length > 0) {
+    areaD += `L ${getX(maxIndex)} ${padding.top + innerHeight} Z`;
+  }
+
+  // Selected point coordinates
+  const selectedX = getX(safeSelectedIndex);
+  const selectedY = selectedPoint ? getY(selectedPoint.capital) : padding.top;
+  const cushionY = safetyCushionTarget ? getY(safetyCushionTarget) : null;
+
+  // Grid ticks (4 lines)
+  const gridTicks = [0, 0.33, 0.66, 1].map((pct) => minVal + pct * valueRange);
+
+  // Slider progress percentage
+  const sliderProgressPct = maxIndex > 0 ? safeSelectedIndex / maxIndex : 0;
+
+  // Handle tap anywhere on chart to jump to month
+  const handleChartPress = (evt: GestureResponderEvent) => {
+    const clickX = evt.nativeEvent.locationX;
+    const chartContentWidth = innerWidth;
+    if (chartContentWidth <= 0 || maxIndex <= 0) return;
+    const relativeX = clickX - padding.left;
+    const ratio = Math.max(0, Math.min(1, relativeX / chartContentWidth));
+    const targetIdx = Math.round(ratio * maxIndex);
+    onSelectIndex(targetIdx);
+  };
+
+  if (monthlyData.length === 0) {
+    return (
+      <View style={[styles.card, styles.emptyContainer]}>
+        <Text style={styles.emptyText}>Aucune donnée de projection disponible.</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View
+      style={[styles.card, isMobile && styles.cardMobile]}
+      onLayout={handleContainerLayout}
+    >
+      {/* 1. Header with Selected Month / Year and Capital Value */}
+      <View style={styles.cardHeader}>
+        <View style={styles.headerInfoCol}>
+          <Text
+            style={[
+              styles.selectedDateHeadline,
+              isNarrow && styles.selectedDateHeadlineNarrow,
+            ]}
+            numberOfLines={1}
+          >
+            {`📅 ${formattedMonthYear} (${relativeText})`}
+          </Text>
+          <Text style={styles.headerSubtext}>
+            Trajectoire prévisionnelle de ton capital disponible
+          </Text>
+        </View>
+
+        <View style={styles.headerCapitalCol}>
+          <Text
+            style={[
+              styles.selectedCapitalText,
+              isNarrow && styles.selectedCapitalTextNarrow,
+            ]}
+            numberOfLines={1}
+          >
+            {selectedPoint ? formatEuro(selectedPoint.capital) : "0 €"}
+          </Text>
+          {safeSelectedIndex > 0 && (
+            <View
+              style={[
+                styles.diffBadge,
+                capitalDiff >= 0
+                  ? styles.diffBadgePositive
+                  : styles.diffBadgeNegative,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.diffBadgeText,
+                  capitalDiff >= 0
+                    ? styles.diffBadgeTextPositive
+                    : styles.diffBadgeTextNegative,
+                ]}
+              >
+                {capitalDiff >= 0 ? `+${formatEuro(capitalDiff)}` : formatEuro(capitalDiff)}{" "}
+                ({capitalDiff >= 0 ? `+${capitalDiffPct}%` : `${capitalDiffPct}%`})
+              </Text>
+            </View>
+          )}
+        </View>
+      </View>
+
+      {/* Events pills for selected month if any */}
+      {selectedPoint && selectedPoint.events.length > 0 && (
+        <View style={styles.eventsBanner}>
+          <Text style={styles.eventsBannerTitle}>Événements du mois :</Text>
+          <View style={styles.eventsPillsRow}>
+            {selectedPoint.events.map((ev) => (
+              <View
+                key={ev.id}
+                style={[
+                  styles.eventPill,
+                  ev.type === "project"
+                    ? styles.eventPillProject
+                    : styles.eventPillInflow,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.eventPillText,
+                    ev.type === "project"
+                      ? styles.eventPillTextProject
+                      : styles.eventPillTextInflow,
+                  ]}
+                >
+                  {ev.type === "project" ? "🚗 -" : "⚡ +"}{formatEuro(ev.amount)} ({ev.title})
+                </Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {/* 2. Interactive Time Slider Control */}
+      <View style={styles.sliderSection}>
+        <View style={styles.sliderHeaderRow}>
+          <Text style={styles.sliderLabel}>Contrôle temporel</Text>
+          <Text style={styles.sliderRangeHint}>
+            Mois {safeSelectedIndex} / {maxIndex}
+          </Text>
+        </View>
+
+        {/* Slider Track with PanResponder & Tap handler */}
+        <View
+          style={styles.sliderTrackWrapper}
+          onLayout={handleSliderTrackLayout}
+          {...panResponder.panHandlers}
+        >
+          {/* Inactive Track Background */}
+          <View style={styles.sliderTrackBg}>
+            {/* Active Track Fill */}
+            <View
+              style={[
+                styles.sliderTrackFill,
+                { width: `${sliderProgressPct * 100}%` },
+              ]}
+            />
+          </View>
+
+          {/* Interactive Thumb */}
+          <View
+            style={[
+              styles.sliderThumb,
+              { left: `${sliderProgressPct * 100}%` },
+            ]}
+          >
+            <View style={styles.sliderThumbDot} />
+          </View>
+
+          {/* Transparent HTML Input Range overlay on Web for full keyboard/wheel accessibility */}
+          {Platform.OS === "web" && (
+            <input
+              type="range"
+              min={0}
+              max={maxIndex}
+              step={1}
+              value={safeSelectedIndex}
+              onChange={(e) => {
+                const val = parseInt(e.target.value, 10);
+                if (!isNaN(val)) onSelectIndex(val);
+              }}
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: "100%",
+                opacity: 0,
+                cursor: "pointer",
+                margin: 0,
+                padding: 0,
+                zIndex: 10,
+              }}
+              aria-label="Contrôle temporel de projection"
+            />
+          )}
+        </View>
+
+        {/* Track Min/Max Legend */}
+        <View style={styles.sliderMinMaxRow}>
+          <Text style={styles.sliderMinMaxText}>Aujourd'hui</Text>
+          <Text style={styles.sliderMinMaxText}>
+            {monthlyData[maxIndex]?.label ?? `+${maxIndex}m`}
+          </Text>
+        </View>
+
+        {/* 3. Step buttons row: '-1 mois', '+1 mois', '+6 mois', '+1 an' */}
+        <View style={styles.stepButtonsRow}>
+          {/* Quick jump to Today */}
+          <Pressable
+            style={({ pressed }) => [
+              styles.stepBtn,
+              cursorPointer,
+              safeSelectedIndex === 0 && styles.stepBtnDisabled,
+              pressed && styles.stepBtnPressed,
+            ]}
+            onPress={() => onSelectIndex(0)}
+            disabled={safeSelectedIndex === 0}
+            accessibilityRole="button"
+            accessibilityLabel="Revenir à aujourd'hui"
+          >
+            <Text
+              style={[
+                styles.stepBtnText,
+                safeSelectedIndex === 0 && styles.stepBtnTextDisabled,
+              ]}
+            >
+              Aujourd'hui
+            </Text>
+          </Pressable>
+
+          {/* -1 mois */}
+          <Pressable
+            style={({ pressed }) => [
+              styles.stepBtn,
+              cursorPointer,
+              safeSelectedIndex === 0 && styles.stepBtnDisabled,
+              pressed && styles.stepBtnPressed,
+            ]}
+            onPress={() => handleStepDelta(-1)}
+            disabled={safeSelectedIndex === 0}
+            accessibilityRole="button"
+            accessibilityLabel="Reculer d'un mois"
+          >
+            <Text
+              style={[
+                styles.stepBtnText,
+                safeSelectedIndex === 0 && styles.stepBtnTextDisabled,
+              ]}
+            >
+              -1 mois
+            </Text>
+          </Pressable>
+
+          {/* +1 mois */}
+          <Pressable
+            style={({ pressed }) => [
+              styles.stepBtn,
+              styles.stepBtnPrimary,
+              cursorPointer,
+              safeSelectedIndex >= maxIndex && styles.stepBtnDisabled,
+              pressed && styles.stepBtnPressed,
+            ]}
+            onPress={() => handleStepDelta(1)}
+            disabled={safeSelectedIndex >= maxIndex}
+            accessibilityRole="button"
+            accessibilityLabel="Avancer d'un mois"
+          >
+            <Text
+              style={[
+                styles.stepBtnText,
+                styles.stepBtnTextPrimary,
+                safeSelectedIndex >= maxIndex && styles.stepBtnTextDisabled,
+              ]}
+            >
+              +1 mois
+            </Text>
+          </Pressable>
+
+          {/* +6 mois */}
+          <Pressable
+            style={({ pressed }) => [
+              styles.stepBtn,
+              cursorPointer,
+              safeSelectedIndex >= maxIndex && styles.stepBtnDisabled,
+              pressed && styles.stepBtnPressed,
+            ]}
+            onPress={() => handleStepDelta(6)}
+            disabled={safeSelectedIndex >= maxIndex}
+            accessibilityRole="button"
+            accessibilityLabel="Avancer de 6 mois"
+          >
+            <Text
+              style={[
+                styles.stepBtnText,
+                safeSelectedIndex >= maxIndex && styles.stepBtnTextDisabled,
+              ]}
+            >
+              +6 mois
+            </Text>
+          </Pressable>
+
+          {/* +1 an */}
+          <Pressable
+            style={({ pressed }) => [
+              styles.stepBtn,
+              cursorPointer,
+              safeSelectedIndex >= maxIndex && styles.stepBtnDisabled,
+              pressed && styles.stepBtnPressed,
+            ]}
+            onPress={() => handleStepDelta(12)}
+            disabled={safeSelectedIndex >= maxIndex}
+            accessibilityRole="button"
+            accessibilityLabel="Avancer d'un an"
+          >
+            <Text
+              style={[
+                styles.stepBtnText,
+                safeSelectedIndex >= maxIndex && styles.stepBtnTextDisabled,
+              ]}
+            >
+              +1 an
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+
+      {/* 4. Interactive SVG Graph with Emerald Gradient (#0D9488) */}
+      <Pressable onPress={handleChartPress} style={styles.chartWrapper}>
+        <Svg width={containerWidth} height={chartHeight}>
+          <Defs>
+            {/* Emerald Gradient */}
+            <SvgLinearGradient id="emeraldGradient" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0%" stopColor="#0D9488" stopOpacity={0.32} />
+              <Stop offset="75%" stopColor="#0D9488" stopOpacity={0.06} />
+              <Stop offset="100%" stopColor="#0D9488" stopOpacity={0.0} />
+            </SvgLinearGradient>
+          </Defs>
+
+          {/* Horizontal Grid Lines & Y Axis Labels */}
+          {gridTicks.map((val, idx) => {
+            const y = getY(val);
+            const labelText = `${Math.round(val / 1000)}k€`;
+            return (
+              <G key={idx}>
+                <Line
+                  x1={padding.left}
+                  y1={y}
+                  x2={containerWidth - padding.right}
+                  y2={y}
+                  stroke={colors.divider}
+                  strokeDasharray="3,3"
+                  strokeWidth="1"
+                />
+                <SvgText
+                  x={padding.left - 8}
+                  y={y + 3}
+                  fontSize="10"
+                  fontWeight="600"
+                  fill={colors.textMuted}
+                  textAnchor="end"
+                >
+                  {labelText}
+                </SvgText>
+              </G>
+            );
+          })}
+
+          {/* Optional Safety Cushion Target Dotted Line */}
+          {cushionY !== null && safetyCushionTarget && safetyCushionTarget > 0 && (
+            <G>
+              <Line
+                x1={padding.left}
+                y1={cushionY}
+                x2={containerWidth - padding.right}
+                y2={cushionY}
+                stroke="#F59E0B"
+                strokeWidth="1.5"
+                strokeDasharray="4,4"
+              />
+              <SvgText
+                x={containerWidth - padding.right}
+                y={cushionY - 5}
+                fontSize="9"
+                fontWeight="700"
+                fill="#D97706"
+                textAnchor="end"
+              >
+                {`Seuil sécurité (${Math.round(safetyCushionTarget / 1000)}k€)`}
+              </SvgText>
+            </G>
+          )}
+
+          {/* Area Fill */}
+          <Path d={areaD} fill="url(#emeraldGradient)" />
+
+          {/* Main Curve Line in #0D9488 */}
+          <Path
+            d={pathD}
+            fill="none"
+            stroke="#0D9488"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+
+          {/* Selected Point Vertical Guideline */}
+          <Line
+            x1={selectedX}
+            y1={padding.top}
+            x2={selectedX}
+            y2={padding.top + innerHeight}
+            stroke="rgba(13, 148, 136, 0.45)"
+            strokeWidth="1.5"
+            strokeDasharray="4,4"
+          />
+
+          {/* Highlighted Selected Point (Outer Pulse, Emerald Circle, Inner White Dot) */}
+          <Circle
+            cx={selectedX}
+            cy={selectedY}
+            r={13}
+            fill="rgba(13, 148, 136, 0.18)"
+          />
+          <Circle
+            cx={selectedX}
+            cy={selectedY}
+            r={6.5}
+            fill="#0D9488"
+            stroke="#FFFFFF"
+            strokeWidth={2.5}
+          />
+          <Circle cx={selectedX} cy={selectedY} r={2.5} fill="#FFFFFF" />
+
+          {/* Milestone markers along the curve */}
+          {monthlyData.map((d, i) => {
+            if (i === 0 || i === maxIndex) {
+              const x = getX(i);
+              const y = getY(d.capital);
+              if (i !== safeSelectedIndex) {
+                return (
+                  <Circle
+                    key={i}
+                    cx={x}
+                    cy={y}
+                    r={3.5}
+                    fill="#0D9488"
+                    stroke="#FFFFFF"
+                    strokeWidth={1.5}
+                  />
+                );
+              }
+            }
+            return null;
+          })}
+
+          {/* X Axis Date Labels */}
+          {monthlyData.map((d, i) => {
+            const stepInterval =
+              monthlyData.length > 24
+                ? Math.ceil(monthlyData.length / 6)
+                : monthlyData.length > 12
+                ? 3
+                : 2;
+
+            if (i === 0 || i === maxIndex || i % stepInterval === 0) {
+              const x = getX(i);
+              return (
+                <SvgText
+                  key={i}
+                  x={x}
+                  y={chartHeight - 12}
+                  fontSize="10"
+                  fontWeight={i === safeSelectedIndex ? "800" : "600"}
+                  fill={
+                    i === safeSelectedIndex ? "#0D9488" : colors.textSecondary
+                  }
+                  textAnchor="middle"
+                >
+                  {d.label}
+                </SvgText>
+              );
+            }
+            return null;
+          })}
+        </Svg>
+      </Pressable>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: colors.panel,
+    borderRadius: 24,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    ...shadows.sm,
+    width: "100%",
+    ...(Platform.OS === "web"
+      ? ({ backdropFilter: "blur(20px)" } as unknown as ViewStyle)
+      : {}),
+  },
+  cardMobile: {
+    padding: 16,
+    borderRadius: 20,
+  },
+  emptyContainer: {
+    paddingVertical: 36,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyText: {
+    color: colors.textSecondary,
+    fontSize: 13,
+  },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    flexWrap: "wrap",
+    gap: 12,
+    marginBottom: 16,
+  },
+  headerInfoCol: {
+    flex: 1,
+    minWidth: 220,
+  },
+  selectedDateHeadline: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: colors.brand,
+    letterSpacing: -0.3,
+    marginBottom: 2,
+  },
+  selectedDateHeadlineNarrow: {
+    fontSize: 16,
+  },
+  headerSubtext: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: colors.textSecondary,
+  },
+  headerCapitalCol: {
+    alignItems: "flex-end",
+    flexShrink: 0,
+  },
+  selectedCapitalText: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#0D9488",
+    letterSpacing: -0.4,
+  },
+  selectedCapitalTextNarrow: {
+    fontSize: 19,
+  },
+  diffBadge: {
+    marginTop: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  diffBadgePositive: {
+    backgroundColor: colors.positiveSoft,
+  },
+  diffBadgeNegative: {
+    backgroundColor: colors.dangerSoft,
+  },
+  diffBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  diffBadgeTextPositive: {
+    color: colors.primary,
+  },
+  diffBadgeTextNegative: {
+    color: colors.danger,
+  },
+  eventsBanner: {
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 14,
+    padding: 10,
+    marginBottom: 16,
+  },
+  eventsBannerTitle: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.textSecondary,
+    marginBottom: 6,
+  },
+  eventsPillsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  eventPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  eventPillProject: {
+    backgroundColor: colors.warningSoft,
+    borderColor: "rgba(245, 158, 11, 0.3)",
+  },
+  eventPillInflow: {
+    backgroundColor: colors.inflowSoft,
+    borderColor: "rgba(37, 99, 235, 0.3)",
+  },
+  eventPillText: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  eventPillTextProject: {
+    color: "#B45309",
+  },
+  eventPillTextInflow: {
+    color: "#1D4ED8",
+  },
+  sliderSection: {
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 18,
+    padding: 14,
+    marginBottom: 16,
+  },
+  sliderHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  sliderLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.brand,
+  },
+  sliderRangeHint: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: colors.textMuted,
+  },
+  sliderTrackWrapper: {
+    height: 36,
+    justifyContent: "center",
+    position: "relative",
+  },
+  sliderTrackBg: {
+    height: 8,
+    backgroundColor: "#E2E8F0",
+    borderRadius: 4,
+    overflow: "hidden",
+    width: "100%",
+  },
+  sliderTrackFill: {
+    height: "100%",
+    backgroundColor: "#0D9488",
+    borderRadius: 4,
+  },
+  sliderThumb: {
+    position: "absolute",
+    top: 5,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 3,
+    borderColor: "#0D9488",
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: -13,
+    ...shadows.sm,
+    elevation: 3,
+  },
+  sliderThumbDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#0D9488",
+  },
+  sliderMinMaxRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 4,
+    marginBottom: 12,
+  },
+  sliderMinMaxText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: colors.textMuted,
+  },
+  stepButtonsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  stepBtn: {
+    flexGrow: 1,
+    minWidth: 58,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 8,
+  },
+  stepBtnPrimary: {
+    borderColor: "#0D9488",
+    backgroundColor: "rgba(13, 148, 136, 0.08)",
+  },
+  stepBtnPressed: {
+    opacity: 0.75,
+  },
+  stepBtnDisabled: {
+    opacity: 0.4,
+    backgroundColor: "#F1F5F9",
+    borderColor: "#E2E8F0",
+  },
+  stepBtnText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.textPrimary,
+  },
+  stepBtnTextPrimary: {
+    color: "#0D9488",
+  },
+  stepBtnTextDisabled: {
+    color: colors.textMuted,
+  },
+  chartWrapper: {
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 4,
+    overflow: "hidden",
+  },
+});
