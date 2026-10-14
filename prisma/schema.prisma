@@ -1,0 +1,111 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+  schemas   = ["public", "auth"]
+}
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+}
+
+// -----------------------------------------------------------------------------
+// 1. Savings Accounts (Comptes et livrets d'épargne)
+// -----------------------------------------------------------------------------
+model SavingsAccount {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id") @db.Uuid
+  name      String
+  category  String   // 'securite' | 'projet' | 'investissement'
+  amount    Decimal  @db.Decimal(12, 2)
+  rate      Decimal  @default(0) @db.Decimal(5, 2)
+  bank      String?
+  notes     String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([userId], map: "idx_savings_accounts_user_id")
+  @@index([userId, category], map: "idx_savings_accounts_category")
+  @@map("savings_accounts")
+  @@schema("public")
+}
+
+// -----------------------------------------------------------------------------
+// 2. Expenses (Dépenses à venir / CT)
+// -----------------------------------------------------------------------------
+model Expense {
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id") @db.Uuid
+  title      String
+  amount     Decimal  @db.Decimal(12, 2)
+  targetDate String   @map("target_date")
+  category   String
+  isActive   Boolean  @default(true) @map("is_active")
+  notes      String?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([userId], map: "idx_expenses_user_id")
+  @@index([userId, targetDate], map: "idx_expenses_target_date")
+  @@index([userId, isActive], map: "idx_expenses_is_active")
+  @@map("expenses")
+  @@schema("public")
+}
+
+// -----------------------------------------------------------------------------
+// 3. Future Projects (Projets futurs / MT-LT)
+// -----------------------------------------------------------------------------
+model FutureProject {
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id") @db.Uuid
+  title      String
+  amount     Decimal  @db.Decimal(12, 2)
+  targetDate String   @map("target_date")
+  category   String
+  isActive   Boolean  @default(true) @map("is_active")
+  notes      String?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([userId], map: "idx_future_projects_user_id")
+  @@index([userId, targetDate], map: "idx_future_projects_target_date")
+  @@index([userId, isActive], map: "idx_future_projects_is_active")
+  @@map("future_projects")
+  @@schema("public")
+}
+
+// -----------------------------------------------------------------------------
+// 4. Inflows (Rentrées d'argent exceptionnelles)
+// -----------------------------------------------------------------------------
+model Inflow {
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id") @db.Uuid
+  title      String
+  amount     Decimal  @db.Decimal(12, 2)
+  targetDate String   @map("target_date")
+  isActive   Boolean  @default(true) @map("is_active")
+  notes      String?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([userId], map: "idx_inflows_user_id")
+  @@index([userId, targetDate], map: "idx_inflows_target_date")
+  @@index([userId, isActive], map: "idx_inflows_is_active")
+  @@map("inflows")
+  @@schema("public")
+}
+
+// -----------------------------------------------------------------------------
+// 5. User Settings (Paramètres globaux utilisateur)
+// -----------------------------------------------------------------------------
+model UserSettings {
+  userId         String   @id @map("user_id") @db.Uuid
+  monthlySavings Decimal  @default(800) @map("monthly_savings") @db.Decimal(12, 2)
+  safetyCushion  Decimal  @default(20000) @map("safety_cushion") @db.Decimal(12, 2)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("user_settings")
+  @@schema("public")
+}

@@ -12,14 +12,18 @@ Ce guide détaille l'initialisation de la base de données PostgreSQL sur **Supa
 3. Choisissez une organisation, un nom de projet (ex. `NovaBudget`), un mot de passe sécurisé pour la base de données et une région proche de vos utilisateurs (ex. `eu-west-3` Paris ou `eu-central-1` Francfort).
 4. Patientez pendant le provisionnement de l'instance PostgreSQL.
 
-### Étape 1.2 : Exécution de la Migration SQL
-1. Dans le menu latéral de Supabase, ouvrez la section **SQL Editor**.
-2. Cliquez sur **New query** (ou `+`).
-3. Ouvrez le fichier de migration :
-   [`supabase/migrations/20261013000000_init_novabudget_schema.sql`](file:///Users/theomichels/App/NovaBudget/supabase/migrations/20261013000000_init_novabudget_schema.sql)
-4. Copiez l'intégralité du contenu SQL et collez-le dans l'éditeur de requêtes Supabase.
-5. Cliquez sur **Run** (ou `Cmd/Ctrl + Enter`).
-6. Le message `Success. No rows returned` confirme l'exécution sans erreur.
+### Étape 1.2 : Exécution de la Migration SQL Automatisée (Calqué sur veille-techno)
+Grâce au script de migration automatisé, vous n'avez plus besoin de copier-coller manuellement le SQL dans le dashboard :
+1. Renseignez `DATABASE_URL` et `DIRECT_URL` dans votre fichier `.env`.
+2. Lancez simplement la commande :
+   ```bash
+   npm run db:deploy
+   ```
+3. Le script se connecte directement à votre instance Supabase PostgreSQL, applique les tables, index, triggers et politiques RLS, puis génère le client Prisma.
+4. Pour synchroniser le schéma Prisma ultérieurement :
+   ```bash
+   npm run db:push
+   ```
 
 ---
 

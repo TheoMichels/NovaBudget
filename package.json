@@ -3,11 +3,14 @@
   "version": "1.0.0",
   "main": "index.ts",
   "dependencies": {
+    "@prisma/client": "^5.22.0",
     "@react-native-async-storage/async-storage": "^3.1.1",
     "@supabase/supabase-js": "^2.117.3",
+    "@types/pg": "^8.23.1",
     "expo": "~57.0.15",
     "expo-linear-gradient": "~57.0.1",
     "expo-status-bar": "~57.0.1",
+    "pg": "^8.23.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.2",
@@ -16,6 +19,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
+    "prisma": "^5.22.0",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -23,7 +27,11 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "build": "EXPO_NO_TELEMETRY=1 expo export -p web"
+    "build": "EXPO_NO_TELEMETRY=1 expo export -p web",
+    "postinstall": "prisma generate",
+    "db:push": "prisma db push",
+    "db:deploy": "node scripts/deploy-db.mjs",
+    "db:studio": "prisma studio"
   },
   "private": true
 }

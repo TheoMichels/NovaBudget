@@ -27,6 +27,19 @@ export interface SyncResult {
   error?: string;
 }
 
+function isTableMissingError(error: any): boolean {
+  if (!error) return false;
+  const msg = typeof error === "string" ? error : error?.message || "";
+  const code = error?.code || "";
+  return (
+    code === "PGRST205" ||
+    code === "42P01" ||
+    msg.includes("could not find the table") ||
+    msg.includes("does not exist") ||
+    msg.includes("schema cache")
+  );
+}
+
 /**
  * Envoie l'intégralité des données locales (AsyncStorage) vers Supabase pour l'utilisateur connecté.
  */
@@ -73,7 +86,15 @@ export async function pushLocalToSupabase(userId: string): Promise<SyncResult> {
       const { error } = await supabase
         .from("savings_accounts")
         .upsert(savingsRows, { onConflict: "id" });
-      if (error) throw error;
+      if (error) {
+        if (isTableMissingError(error)) {
+          return {
+            success: true,
+            message: "Table Supabase non initialisée. Données enregistrées en local.",
+          };
+        }
+        throw error;
+      }
     }
 
     // 2. Expenses
@@ -93,7 +114,15 @@ export async function pushLocalToSupabase(userId: string): Promise<SyncResult> {
       const { error } = await supabase
         .from("expenses")
         .upsert(expenseRows, { onConflict: "id" });
-      if (error) throw error;
+      if (error) {
+        if (isTableMissingError(error)) {
+          return {
+            success: true,
+            message: "Table Supabase non initialisée. Données enregistrées en local.",
+          };
+        }
+        throw error;
+      }
     }
 
     // 3. Future Projects
@@ -113,7 +142,15 @@ export async function pushLocalToSupabase(userId: string): Promise<SyncResult> {
       const { error } = await supabase
         .from("future_projects")
         .upsert(projectRows, { onConflict: "id" });
-      if (error) throw error;
+      if (error) {
+        if (isTableMissingError(error)) {
+          return {
+            success: true,
+            message: "Table Supabase non initialisée. Données enregistrées en local.",
+          };
+        }
+        throw error;
+      }
     }
 
     // 4. Inflows
@@ -132,7 +169,15 @@ export async function pushLocalToSupabase(userId: string): Promise<SyncResult> {
       const { error } = await supabase
         .from("inflows")
         .upsert(inflowRows, { onConflict: "id" });
-      if (error) throw error;
+      if (error) {
+        if (isTableMissingError(error)) {
+          return {
+            success: true,
+            message: "Table Supabase non initialisée. Données enregistrées en local.",
+          };
+        }
+        throw error;
+      }
     }
 
     // 5. User Settings
@@ -146,13 +191,27 @@ export async function pushLocalToSupabase(userId: string): Promise<SyncResult> {
     const { error: settingsError } = await supabase
       .from("user_settings")
       .upsert(settingsRow, { onConflict: "user_id" });
-    if (settingsError) throw settingsError;
+    if (settingsError) {
+      if (isTableMissingError(settingsError)) {
+        return {
+          success: true,
+          message: "Table Supabase non initialisée. Données enregistrées en local.",
+        };
+      }
+      throw settingsError;
+    }
 
     return {
       success: true,
       message: "Synchronisation montante vers Supabase réussie.",
     };
   } catch (err) {
+    if (isTableMissingError(err)) {
+      return {
+        success: true,
+        message: "Tables Supabase non initialisées. Vos données sont conservées localement.",
+      };
+    }
     const message =
       err instanceof Error ? err.message : "Erreur lors de l'envoi des données";
     return {
@@ -198,6 +257,21 @@ export async function pullSupabaseToLocal(userId: string): Promise<SyncResult> {
         .eq("user_id", userId)
         .maybeSingle(),
     ]);
+
+    const anyMissing = [
+      savingsRes.error,
+      expensesRes.error,
+      projectsRes.error,
+      inflowsRes.error,
+      settingsRes.error,
+    ].some(isTableMissingError);
+
+    if (anyMissing) {
+      return {
+        success: true,
+        message: "Tables Supabase en attente d'initialisation. Mode local actif.",
+      };
+    }
 
     if (savingsRes.error) throw savingsRes.error;
     if (expensesRes.error) throw expensesRes.error;
