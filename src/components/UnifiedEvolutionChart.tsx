@@ -1,11 +1,11 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   GestureResponderEvent,
   LayoutChangeEvent,
   PanResponder,
   PanResponderGestureState,
   Platform,
-  Pressable,
+  PointerEvent as RNPointerEvent,
   ScrollView,
   StyleSheet,
   Text,
@@ -24,10 +24,16 @@ import Svg, {
   Text as SvgText,
 } from "react-native-svg";
 import { colors, shadows } from "../theme/colors";
-import { cursorPointer } from "../theme/webCursor";
 import { formatEuro } from "../hooks/useForecast";
 import { ProjectionMonthPoint } from "../types/projection";
-import { formatFrenchMonthYear, getRelativeMonthDescription } from "../utils/dateUtils";
+import { formatFrenchMonthYear } from "../utils/dateUtils";
+
+interface DomPointerTarget {
+  setPointerCapture?: (pointerId: number) => void;
+  releasePointerCapture?: (pointerId: number) => void;
+  hasPointerCapture?: (pointerId: number) => boolean;
+  getBoundingClientRect?: () => { left: number; top: number; width: number; height: number };
+}
 
 export interface CumulativeProjectionEvent {
   id: string;
@@ -57,8 +63,6 @@ export function UnifiedEvolutionChart({
   const isNarrow = width < 400;
 
   const [containerWidth, setContainerWidth] = useState<number>(600);
-  const [sliderTrackWidth, setSliderTrackWidth] = useState<number>(300);
-  const sliderTrackWidthRef = useRef<number>(300);
 
   const maxIndex = Math.max(0, monthlyData.length - 1);
   const safeSelectedIndex = Math.min(Math.max(0, selectedIndex), maxIndex);
@@ -72,39 +76,128 @@ export function UnifiedEvolutionChart({
     }
   };
 
-  const handleSliderTrackLayout = (e: LayoutChangeEvent) => {
-    const w = e.nativeEvent.layout.width;
-    if (w > 0) {
-      setSliderTrackWidth(w);
-      sliderTrackWidthRef.current = w;
+  // SVG Chart geometry
+  const chartHeight = isMobile ? 220 : 250;
+  const padding = {
+    top: 24,
+    right: 24,
+    bottom: 34,
+    left: isNarrow ? 44 : 54,
+  };
+  const innerWidth = Math.max(100, containerWidth - padding.left - padding.right);
+  const innerHeight = Math.max(60, chartHeight - padding.top - padding.bottom);
+
+  // Synchronization ref for fast, continuous scrubbing without stale state
+  const lastIndexRef = useRef<number>(safeSelectedIndex);
+  useEffect(() => {
+    lastIndexRef.current = safeSelectedIndex;
+  }, [safeSelectedIndex]);
+
+  // Target index calculation from X position on chart
+  const updateIndexRef = useRef<(x: number, force?: boolean) => void>(() => {});
+  updateIndexRef.current = (x: number, force = false) => {
+    if (innerWidth <= 0 || maxIndex <= 0) return;
+    const ratio = Math.max(0, Math.min(1, (x - padding.left) / innerWidth));
+    const targetIdx = Math.round(ratio * maxIndex);
+    if (force || targetIdx !== lastIndexRef.current) {
+      lastIndexRef.current = targetIdx;
+      onSelectIndex(targetIdx);
     }
   };
 
-  // Slider interaction handlers
-  const updateIndexFromTrackOffset = (offsetX: number) => {
-    const trackWidth = sliderTrackWidthRef.current;
-    if (trackWidth <= 0 || maxIndex <= 0) return;
-    const clampedX = Math.max(0, Math.min(trackWidth, offsetX));
-    const ratio = clampedX / trackWidth;
-    const targetIndex = Math.round(ratio * maxIndex);
-    onSelectIndex(targetIndex);
-  };
-
-  const panResponder = useRef(
+  // Mobile Touch PanResponder
+  const panStartLocationXRef = useRef<number>(0);
+  const chartPanResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
+      onPanResponderTerminationRequest: () => false,
       onPanResponderGrant: (evt: GestureResponderEvent) => {
-        updateIndexFromTrackOffset(evt.nativeEvent.locationX);
+        panStartLocationXRef.current = evt.nativeEvent.locationX;
+        updateIndexRef.current(evt.nativeEvent.locationX, true);
       },
       onPanResponderMove: (
         evt: GestureResponderEvent,
-        _gestureState: PanResponderGestureState
+        gestureState: PanResponderGestureState
       ) => {
-        updateIndexFromTrackOffset(evt.nativeEvent.locationX);
+        const currentX =
+          typeof gestureState.dx === "number" && !isNaN(gestureState.dx)
+            ? panStartLocationXRef.current + gestureState.dx
+            : evt.nativeEvent.locationX;
+        updateIndexRef.current(currentX, false);
       },
     })
   ).current;
+
+  // Web Pointer Drag & Click Handlers
+  const isDraggingRef = useRef<boolean>(false);
+
+  const handlePointerDown = (e: RNPointerEvent) => {
+    isDraggingRef.current = true;
+    const pointerId = e.nativeEvent.pointerId;
+    const clientX = e.nativeEvent.clientX;
+    const domTarget = e.currentTarget as unknown as DomPointerTarget | null;
+
+    if (domTarget?.setPointerCapture && typeof pointerId === "number") {
+      try {
+        domTarget.setPointerCapture(pointerId);
+      } catch {
+        // Fallback if setPointerCapture fails
+      }
+    }
+
+    if (domTarget?.getBoundingClientRect && typeof clientX === "number") {
+      const rect = domTarget.getBoundingClientRect();
+      const x = clientX - rect.left;
+      updateIndexRef.current(x, true);
+      return;
+    }
+
+    const nativeEvt = e.nativeEvent as unknown as { locationX?: number; offsetX?: number };
+    const x = nativeEvt.locationX ?? nativeEvt.offsetX ?? 0;
+    updateIndexRef.current(x, true);
+  };
+
+  const handlePointerMove = (e: RNPointerEvent) => {
+    if (!isDraggingRef.current) return;
+    const clientX = e.nativeEvent.clientX;
+    const domTarget = e.currentTarget as unknown as DomPointerTarget | null;
+
+    if (domTarget?.getBoundingClientRect && typeof clientX === "number") {
+      const rect = domTarget.getBoundingClientRect();
+      const x = clientX - rect.left;
+      updateIndexRef.current(x, false);
+      return;
+    }
+
+    const nativeEvt = e.nativeEvent as unknown as { locationX?: number; offsetX?: number };
+    const x = nativeEvt.locationX ?? nativeEvt.offsetX ?? 0;
+    updateIndexRef.current(x, false);
+  };
+
+  const handlePointerUp = (e: RNPointerEvent) => {
+    if (!isDraggingRef.current) return;
+    isDraggingRef.current = false;
+    const pointerId = e.nativeEvent.pointerId;
+    const domTarget = e.currentTarget as unknown as DomPointerTarget | null;
+
+    if (domTarget?.releasePointerCapture && typeof pointerId === "number") {
+      try {
+        if (
+          !domTarget.hasPointerCapture ||
+          domTarget.hasPointerCapture(pointerId)
+        ) {
+          domTarget.releasePointerCapture(pointerId);
+        }
+      } catch {
+        // Fallback if releasePointerCapture fails
+      }
+    }
+  };
+
+  const handlePointerCancel = (e: RNPointerEvent) => {
+    handlePointerUp(e);
+  };
 
   // Cumulative events from month 0 up to safeSelectedIndex inclusive
   const cumulativeEvents = useMemo<CumulativeProjectionEvent[]>(() => {
@@ -134,13 +227,6 @@ export function UnifiedEvolutionChart({
     ? formatFrenchMonthYear(selectedPoint.dateStr, "full")
     : selectedPoint?.label ?? "";
 
-  const relativeText =
-    safeSelectedIndex === 0
-      ? "Aujourd'hui"
-      : selectedPoint?.dateStr
-      ? getRelativeMonthDescription(selectedPoint.dateStr)
-      : `dans ${safeSelectedIndex} mois`;
-
   // Net difference vs Month 0
   const capitalDiff =
     selectedPoint && initialPoint
@@ -150,17 +236,6 @@ export function UnifiedEvolutionChart({
     initialPoint && initialPoint.capital > 0
       ? ((capitalDiff / initialPoint.capital) * 100).toFixed(1)
       : "0.0";
-
-  // SVG Chart geometry
-  const chartHeight = isMobile ? 220 : 250;
-  const padding = {
-    top: 24,
-    right: 24,
-    bottom: 34,
-    left: isNarrow ? 44 : 54,
-  };
-  const innerWidth = Math.max(100, containerWidth - padding.left - padding.right);
-  const innerHeight = Math.max(60, chartHeight - padding.top - padding.bottom);
 
   const capitals = monthlyData.map((d) => d.capital);
   const maxVal = Math.max(
@@ -219,20 +294,6 @@ export function UnifiedEvolutionChart({
   // Grid ticks (4 lines)
   const gridTicks = [0, 0.33, 0.66, 1].map((pct) => minVal + pct * valueRange);
 
-  // Slider progress percentage
-  const sliderProgressPct = maxIndex > 0 ? safeSelectedIndex / maxIndex : 0;
-
-  // Handle tap anywhere on chart to jump to month
-  const handleChartPress = (evt: GestureResponderEvent) => {
-    const clickX = evt.nativeEvent.locationX;
-    const chartContentWidth = innerWidth;
-    if (chartContentWidth <= 0 || maxIndex <= 0) return;
-    const relativeX = clickX - padding.left;
-    const ratio = Math.max(0, Math.min(1, relativeX / chartContentWidth));
-    const targetIdx = Math.round(ratio * maxIndex);
-    onSelectIndex(targetIdx);
-  };
-
   if (monthlyData.length === 0) {
     return (
       <View style={[styles.card, styles.emptyContainer]}>
@@ -256,10 +317,10 @@ export function UnifiedEvolutionChart({
             ]}
             numberOfLines={1}
           >
-            {`📅 ${formattedMonthYear} (${relativeText})`}
+            {`📅 ${formattedMonthYear}`}
           </Text>
           <Text style={styles.headerSubtext}>
-            Trajectoire prévisionnelle de ton capital disponible
+            Clique ou glisse sur le graphe pour ajuster la date
           </Text>
         </View>
 
@@ -298,84 +359,14 @@ export function UnifiedEvolutionChart({
         </View>
       </View>
 
-      {/* 2. Interactive Time Slider Control */}
-      <View style={styles.sliderSection}>
-        <View style={styles.sliderHeaderRow}>
-          <Text style={styles.sliderLabel}>Contrôle temporel</Text>
-          <Text style={styles.sliderRangeHint}>
-            Mois {safeSelectedIndex} / {maxIndex}
-          </Text>
-        </View>
-
-        {/* Slider Track with PanResponder & Tap handler */}
-        <View
-          style={styles.sliderTrackWrapper}
-          onLayout={handleSliderTrackLayout}
-          {...panResponder.panHandlers}
-        >
-          {/* Inactive Track Background */}
-          <View style={styles.sliderTrackBg}>
-            {/* Active Track Fill */}
-            <View
-              style={[
-                styles.sliderTrackFill,
-                { width: `${sliderProgressPct * 100}%` },
-              ]}
-            />
-          </View>
-
-          {/* Interactive Thumb */}
-          <View
-            style={[
-              styles.sliderThumb,
-              { left: `${sliderProgressPct * 100}%` },
-            ]}
-          >
-            <View style={styles.sliderThumbDot} />
-          </View>
-
-          {/* Transparent HTML Input Range overlay on Web for full keyboard/wheel accessibility */}
-          {Platform.OS === "web" && (
-            <input
-              type="range"
-              min={0}
-              max={maxIndex}
-              step={1}
-              value={safeSelectedIndex}
-              onChange={(e) => {
-                const val = parseInt(e.target.value, 10);
-                if (!isNaN(val)) onSelectIndex(val);
-              }}
-              style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                width: "100%",
-                height: "100%",
-                opacity: 0,
-                cursor: "pointer",
-                margin: 0,
-                padding: 0,
-                zIndex: 10,
-              }}
-              aria-label="Contrôle temporel de projection"
-            />
-          )}
-        </View>
-
-        {/* Track Min/Max Legend */}
-        <View style={styles.sliderMinMaxRow}>
-          <Text style={styles.sliderMinMaxText}>Aujourd'hui</Text>
-          <Text style={styles.sliderMinMaxText}>
-            {monthlyData[maxIndex]?.label ?? `+${maxIndex}m`}
-          </Text>
-        </View>
-      </View>
-
-      {/* 3. Interactive SVG Graph with Emerald Gradient (#0D9488) */}
-      <Pressable
-        onPress={handleChartPress}
-        style={[styles.chartWrapper, cursorPointer]}
+      {/* 2. Interactive SVG Graph with Emerald Gradient (#0D9488) */}
+      <View
+        style={styles.chartWrapper}
+        {...(Platform.OS === "web" ? {} : chartPanResponder.panHandlers)}
+        onPointerDown={Platform.OS === "web" ? handlePointerDown : undefined}
+        onPointerMove={Platform.OS === "web" ? handlePointerMove : undefined}
+        onPointerUp={Platform.OS === "web" ? handlePointerUp : undefined}
+        onPointerCancel={Platform.OS === "web" ? handlePointerCancel : undefined}
       >
         <Svg width={containerWidth} height={chartHeight}>
           <Defs>
@@ -534,9 +525,9 @@ export function UnifiedEvolutionChart({
             return null;
           })}
         </Svg>
-      </Pressable>
+      </View>
 
-      {/* 4. Events timeline up to selected date (discreet, zero layout shift) */}
+      {/* 3. Events timeline up to selected date (discreet, zero layout shift) */}
       <View style={styles.eventsSection}>
         <View style={styles.eventsSectionHeader}>
           <View style={styles.eventsSectionTitleRow}>
@@ -736,85 +727,19 @@ const styles = StyleSheet.create({
   diffBadgeTextNegative: {
     color: colors.danger,
   },
-  sliderSection: {
-    backgroundColor: "#F8FAFC",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    borderRadius: 18,
-    padding: 14,
-    marginBottom: 14,
-  },
-  sliderHeaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 10,
-  },
-  sliderLabel: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: colors.brand,
-  },
-  sliderRangeHint: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: colors.textMuted,
-  },
-  sliderTrackWrapper: {
-    height: 36,
-    justifyContent: "center",
-    position: "relative",
-  },
-  sliderTrackBg: {
-    height: 8,
-    backgroundColor: "#E2E8F0",
-    borderRadius: 4,
-    overflow: "hidden",
-    width: "100%",
-  },
-  sliderTrackFill: {
-    height: "100%",
-    backgroundColor: "#0D9488",
-    borderRadius: 4,
-  },
-  sliderThumb: {
-    position: "absolute",
-    top: 5,
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 3,
-    borderColor: "#0D9488",
-    alignItems: "center",
-    justifyContent: "center",
-    marginLeft: -13,
-    ...shadows.sm,
-    elevation: 3,
-  },
-  sliderThumbDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "#0D9488",
-  },
-  sliderMinMaxRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 4,
-    marginBottom: 0,
-  },
-  sliderMinMaxText: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: colors.textMuted,
-  },
   chartWrapper: {
     width: "100%",
     alignItems: "center",
     justifyContent: "center",
     marginTop: 2,
     overflow: "hidden",
+    ...(Platform.OS === "web"
+      ? ({
+          cursor: "ew-resize",
+          userSelect: "none",
+          touchAction: "none",
+        } as unknown as ViewStyle)
+      : {}),
   },
   eventsSection: {
     backgroundColor: "#F8FAFC",
