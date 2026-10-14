@@ -67,6 +67,7 @@ export function UnifiedKpiCards({
     <View style={styles.container}>
       {/* 1. Épargne actuelle */}
       <View
+        testID="kpi-savings-card"
         style={[
           styles.card,
           styles.cardSavings,
@@ -107,6 +108,7 @@ export function UnifiedKpiCards({
 
       {/* 2. Dépenses prévues */}
       <View
+        testID="kpi-expenses-card"
         style={[
           styles.card,
           styles.cardExpenses,
@@ -158,6 +160,7 @@ export function UnifiedKpiCards({
 
       {/* 3. Épargne projetée */}
       <View
+        testID="kpi-projected-card"
         style={[
           styles.card,
           styles.cardProjected,
@@ -207,24 +210,34 @@ export function UnifiedKpiCards({
               Solde net estimé (intérêts & rentrées inclus)
             </Text>
           </View>
-          {hasPositiveGains && (
-            <View style={styles.gainsRow}>
-              {accumulatedInterestUntilDate > 0 && (
-                <View style={styles.miniInterestPill}>
-                  <Text style={styles.miniInterestText} numberOfLines={1}>
-                    +{formatEuro(accumulatedInterestUntilDate)} intérêts
+          <View style={styles.gainsSlot} testID="kpi-projected-gains">
+            {hasPositiveGains ? (
+              <View style={styles.gainsRow}>
+                {accumulatedInterestUntilDate > 0 && (
+                  <View style={styles.miniInterestPill}>
+                    <Text style={styles.miniInterestText} numberOfLines={1}>
+                      +{formatEuro(accumulatedInterestUntilDate)} intérêts
+                    </Text>
+                  </View>
+                )}
+                {inflowsUntilDate > 0 && (
+                  <View style={styles.miniInflowPill}>
+                    <Text style={styles.miniInflowText} numberOfLines={1}>
+                      +{formatEuro(inflowsUntilDate)} rentrées
+                    </Text>
+                  </View>
+                )}
+              </View>
+            ) : (
+              <View style={styles.gainsRow}>
+                <View style={styles.miniNeutralPill}>
+                  <Text style={styles.miniNeutralText} numberOfLines={1}>
+                    0 € de gains à date
                   </Text>
                 </View>
-              )}
-              {inflowsUntilDate > 0 && (
-                <View style={styles.miniInflowPill}>
-                  <Text style={styles.miniInflowText} numberOfLines={1}>
-                    +{formatEuro(inflowsUntilDate)} rentrées
-                  </Text>
-                </View>
-              )}
-            </View>
-          )}
+              </View>
+            )}
+          </View>
         </View>
       </View>
     </View>
@@ -241,6 +254,7 @@ const styles = StyleSheet.create({
   card: {
     flex: 1,
     minWidth: 240,
+    minHeight: 146,
     backgroundColor: colors.panel,
     borderRadius: 22,
     padding: 18,
@@ -254,6 +268,7 @@ const styles = StyleSheet.create({
   },
   cardMobile: {
     padding: 15,
+    minHeight: 140,
   },
   cardSavings: {
     borderColor: "rgba(13, 148, 136, 0.22)",
@@ -363,11 +378,28 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: colors.textMuted,
   },
+  gainsSlot: {
+    minHeight: 24,
+    justifyContent: "center",
+  },
   gainsRow: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 6,
     marginTop: 2,
+  },
+  miniNeutralPill: {
+    backgroundColor: "#F1F5F9",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+  },
+  miniNeutralText: {
+    color: "#64748B",
+    fontSize: 10,
+    fontWeight: "700",
   },
   miniInterestPill: {
     backgroundColor: colors.primaryBackground,

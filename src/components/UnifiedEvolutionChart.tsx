@@ -308,14 +308,16 @@ export function UnifiedEvolutionChart({
       onLayout={handleContainerLayout}
     >
       {/* 1. Header with Selected Month / Year and Capital Value */}
-      <View style={styles.cardHeader}>
+      <View style={styles.cardHeader} testID="chart-card-header">
         <View style={styles.headerInfoCol}>
           <Text
+            testID="chart-date-headline"
             style={[
               styles.selectedDateHeadline,
               isNarrow && styles.selectedDateHeadlineNarrow,
             ]}
             numberOfLines={1}
+            ellipsizeMode="tail"
           >
             {`📅 ${formattedMonthYear}`}
           </Text>
@@ -323,6 +325,7 @@ export function UnifiedEvolutionChart({
 
         <View style={styles.headerCapitalCol}>
           <Text
+            testID="chart-capital-value"
             style={[
               styles.selectedCapitalText,
               isNarrow && styles.selectedCapitalTextNarrow,
@@ -331,28 +334,42 @@ export function UnifiedEvolutionChart({
           >
             {selectedPoint ? formatEuro(selectedPoint.capital) : "0 €"}
           </Text>
-          {safeSelectedIndex > 0 && (
-            <View
-              style={[
-                styles.diffBadge,
-                capitalDiff >= 0
-                  ? styles.diffBadgePositive
-                  : styles.diffBadgeNegative,
-              ]}
-            >
-              <Text
+          <View style={styles.diffBadgeSlot}>
+            {safeSelectedIndex === 0 ? (
+              <View
+                testID="chart-diff-badge"
+                style={[styles.diffBadge, styles.diffBadgeNeutral]}
+              >
+                <Text style={[styles.diffBadgeText, styles.diffBadgeTextNeutral]}>
+                  Point de départ
+                </Text>
+              </View>
+            ) : (
+              <View
+                testID="chart-diff-badge"
                 style={[
-                  styles.diffBadgeText,
+                  styles.diffBadge,
                   capitalDiff >= 0
-                    ? styles.diffBadgeTextPositive
-                    : styles.diffBadgeTextNegative,
+                    ? styles.diffBadgePositive
+                    : styles.diffBadgeNegative,
                 ]}
               >
-                {capitalDiff >= 0 ? `+${formatEuro(capitalDiff)}` : formatEuro(capitalDiff)}{" "}
-                ({capitalDiff >= 0 ? `+${capitalDiffPct}%` : `${capitalDiffPct}%`})
-              </Text>
-            </View>
-          )}
+                <Text
+                  style={[
+                    styles.diffBadgeText,
+                    capitalDiff >= 0
+                      ? styles.diffBadgeTextPositive
+                      : styles.diffBadgeTextNegative,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {isNarrow
+                    ? `${capitalDiff >= 0 ? "+" : ""}${capitalDiffPct}%`
+                    : `${capitalDiff >= 0 ? `+${formatEuro(capitalDiff)}` : formatEuro(capitalDiff)} (${capitalDiff >= 0 ? `+${capitalDiffPct}%` : `${capitalDiffPct}%`})`}
+                </Text>
+              </View>
+            )}
+          </View>
         </View>
       </View>
 
@@ -666,13 +683,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     justifyContent: "space-between",
-    flexWrap: "wrap",
-    gap: 12,
+    flexWrap: "nowrap",
+    gap: 8,
     marginBottom: 16,
   },
   headerInfoCol: {
     flex: 1,
-    minWidth: 220,
+    flexShrink: 1,
+    marginRight: 8,
   },
   selectedDateHeadline: {
     fontSize: 18,
@@ -692,6 +710,7 @@ const styles = StyleSheet.create({
   headerCapitalCol: {
     alignItems: "flex-end",
     flexShrink: 0,
+    minWidth: 80,
   },
   selectedCapitalText: {
     fontSize: 22,
@@ -702,11 +721,21 @@ const styles = StyleSheet.create({
   selectedCapitalTextNarrow: {
     fontSize: 19,
   },
-  diffBadge: {
+  diffBadgeSlot: {
+    minHeight: 22,
+    justifyContent: "center",
+    alignItems: "flex-end",
     marginTop: 3,
+  },
+  diffBadge: {
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 8,
+  },
+  diffBadgeNeutral: {
+    backgroundColor: "#F1F5F9",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
   },
   diffBadgePositive: {
     backgroundColor: colors.positiveSoft,
@@ -717,6 +746,9 @@ const styles = StyleSheet.create({
   diffBadgeText: {
     fontSize: 10,
     fontWeight: "700",
+  },
+  diffBadgeTextNeutral: {
+    color: "#64748B",
   },
   diffBadgeTextPositive: {
     color: colors.primary,

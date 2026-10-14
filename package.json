@@ -28,6 +28,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "build": "EXPO_NO_TELEMETRY=1 expo export -p web",
+    "test": "node --test tests/*.test.mjs",
     "postinstall": "prisma generate",
     "db:push": "prisma db push",
     "db:deploy": "node scripts/deploy-db.mjs",

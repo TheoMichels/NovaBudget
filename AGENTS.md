@@ -1,22 +1,26 @@
-# 🤖 Règles Multi-Agents & Orchestration de NovaBudget
+# FICHE D'IDENTITÉ DU PROJET (WORKSPACE AGENTS.md)
+> Configuration spécifique pour NovaBudget.
 
-Ce projet utilise une architecture de développement multi-agents hiérarchisée basée sur Google Antigravity.
+## 1. CONTEXTE MÉTIER DE L'APPLICATION
+- **Nom du projet** : NovaBudget
+- **Objectif principal** : Application de gestion budgétaire, d'épargne et de projection financière à moyen et long terme (36 mois) avec calcul d'intérêts composés, rentrées prévues et dépenses planifiées.
+- **Utilisateurs & Usage** : Usage personnel (Desktop / Mobile PWA local)
 
-## 🎯 Rôle par Défaut de l'Assistant
-Lorsque l'utilisateur soumet une demande d'ajout de fonctionnalités, d'évolution d'architecture ou de sprint de développement :
-- L'assistant principal adopte le rôle d'**Agent Orchestrateur & Tech Lead Reviewer** défini dans [`.agents/orchestrator.md`](.agents/orchestrator.md).
-- L'assistant ne doit pas tenter de tout développer dans un seul fil monolithique si les tâches peuvent être parallélisées.
-- L'assistant découpe le travail en sous-tâches indépendantes et délègue l'implémentation à des sous-agents `engineer` décrits dans [`.agents/subagents/engineer.md`](.agents/subagents/engineer.md).
+## 2. STACK & ARCHITECTURE LOCALE
+- **Framework** : Expo SDK 57 (React Native Web, TypeScript strict)
+- **UI / Design** : React Native StyleSheet natif, palette émeraude (`src/theme/colors.ts`), dégradés doux (`expo-linear-gradient`), graphe vectoriel interactif (`react-native-svg`).
+- **Persistance des données** : Repository Pattern (`src/storage/`) avec AsyncStorage local et synchronisation Supabase / Prisma.
+- **Port de développement local** : `http://localhost:8081`
 
-## 🌿 Gestion des Branches & Espaces Isolés
-- Chaque sous-agent travaillant sur une fonctionnalité distincte doit être instancié avec un espace isolé :
-  - Dans l'outil `invoke_subagent`, définir `Workspace: "branch"` pour créer une branche dédiée et éviter les conflits d'édition simultanée.
-- Les sous-agents doivent être invoqués simultanément dans le même appel `invoke_subagent` pour maximiser le parallélisme.
+## 3. COMMANDES CONCRÈTES DU HARNESS (OBLIGATOIRES POUR LES AGENTS)
+- **Démarrer le serveur dev web** : `npm run web`
+- **Vérifier le typage** : `npx tsc --noEmit`
+- **Lancer les tests** : `npm run test`
+- **Build Web** : `npm run build`
+- **Commande globale du Harness** : `bash ~/.gemini/config/skills/autonomous-qa/scripts/verify-harness.sh`
 
-## 🔍 Processus de Revue de Code (Code Review)
-- Aucun code produit par un sous-agent ne doit être intégré sans une revue de code complète par l'Orchestrateur :
-  1. `git diff` et vérification du confinement au périmètre imparti.
-  2. Vérification statique stricte : `npx tsc --noEmit` sans aucune erreur.
-  3. Respect du design system NovaBudget (vert émeraude, cartes arrondies, AsyncStorage offline-first).
-- En cas de manquement, l'Orchestrateur envoie les demandes de correctifs au sous-agent concerné via `send_message`.
-- Une fois toutes les revues validées, l'Orchestrateur procède au merge sur `main` et présente une synthèse à l'utilisateur.
+## 4. RÈGLES SPÉCIFIQUES AU PROJET & MODÈLE DE DONNÉES
+- Formatage monétaire : Euro français (ex: `1 250 €`) via `formatEuro`.
+- Formatage des dates : Format français (ex: `Août 2026`) via `formatFrenchMonthYear`.
+- Navigation fluide sans Cumulative Layout Shift (CLS) lors du déplacement du curseur temporel (0 à 36 mois).
+
