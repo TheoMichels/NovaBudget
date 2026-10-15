@@ -263,6 +263,20 @@ export function UnifiedEvolutionChart({
     return padding.left + (idx / count) * innerWidth;
   };
 
+  // Répartir les dates selon la place réelle et réserver de la largeur aux textes
+  // (y compris leur graisse sélectionnée), au lieu de coller un tick au dernier mois.
+  const widestLabel = Math.max(0, ...monthlyData.map((point) => point.label.length)) * 8;
+  const tickCount = Math.min(
+    monthlyData.length,
+    7,
+    Math.max(2, Math.floor(innerWidth / (widestLabel + 12)) + 1),
+  );
+  const visibleTickIndices = new Set(
+    Array.from({ length: tickCount }, (_, slot) =>
+      Math.round((slot * maxIndex) / Math.max(1, tickCount - 1)),
+    ),
+  );
+
   // Build SVG smooth path
   let pathD = "";
   let areaD = `M ${getX(0)} ${padding.top + innerHeight} `;
@@ -375,6 +389,7 @@ export function UnifiedEvolutionChart({
 
       {/* 2. Interactive SVG Graph with Emerald Gradient (#0D9488) */}
       <View
+        testID="projection-chart"
         style={styles.chartWrapper}
         {...(Platform.OS === "web" ? {} : chartPanResponder.panHandlers)}
         onPointerDown={Platform.OS === "web" ? handlePointerDown : undefined}
@@ -511,18 +526,12 @@ export function UnifiedEvolutionChart({
 
           {/* X Axis Date Labels */}
           {monthlyData.map((d, i) => {
-            const stepInterval =
-              monthlyData.length > 24
-                ? Math.ceil(monthlyData.length / 6)
-                : monthlyData.length > 12
-                ? 3
-                : 2;
-
-            if (i === 0 || i === maxIndex || i % stepInterval === 0) {
+            if (visibleTickIndices.has(i)) {
               const x = getX(i);
               return (
                 <SvgText
                   key={i}
+                  testID={`chart-x-tick-${i}`}
                   x={x}
                   y={chartHeight - 12}
                   fontSize="10"
@@ -530,7 +539,7 @@ export function UnifiedEvolutionChart({
                   fill={
                     i === safeSelectedIndex ? "#0D9488" : colors.textSecondary
                   }
-                  textAnchor="middle"
+                  textAnchor={i === 0 ? "start" : i === maxIndex ? "end" : "middle"}
                 >
                   {d.label}
                 </SvgText>

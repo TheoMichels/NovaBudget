@@ -1,6 +1,7 @@
 import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { isLocalMode } from "../config/storageMode";
 import { Database } from "../types/database";
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL?.trim();
@@ -93,7 +94,7 @@ export const hybridAuthStorage = {
  * Instance Supabase typée avec l'interface Database de NovaBudget.
  * Si les variables d'environnement sont absentes, reste null pour éviter tout crash au démarrage.
  */
-export const supabase: SupabaseClient<Database> | null = isSupabaseConfigured
+export const supabase: SupabaseClient<Database> | null = !isLocalMode && isSupabaseConfigured
   ? createClient<Database>(supabaseUrl as string, supabaseAnonKey as string, {
       auth: {
         storage: hybridAuthStorage,

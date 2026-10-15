@@ -11,6 +11,7 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
 import { gradient } from "./src/theme/colors";
+import { isLocalMode } from "./src/config/storageMode";
 import { useAuth } from "./src/hooks/useAuth";
 import { AuthScreen } from "./src/components/AuthScreen";
 import { useSavings } from "./src/hooks/useSavings";
@@ -242,7 +243,7 @@ function AuthenticatedDashboard(): React.JSX.Element {
 export default function App(): React.JSX.Element {
   const { isAuthenticated, isLoading } = useAuth();
 
-  if (isLoading) {
+  if (!isLocalMode && isLoading) {
     return (
       <LinearGradient
         colors={gradient.colors}
@@ -257,7 +258,7 @@ export default function App(): React.JSX.Element {
     );
   }
 
-  if (!isAuthenticated) {
+  if (!isLocalMode && !isAuthenticated) {
     return (
       <>
         <StatusBar style="dark" />

@@ -14,3 +14,13 @@ npm-debug.*
 .env.local
 .env.*.local
 
+
+# Données runtime et preuves de tests locales
+.agents/state/
+test-results/
+playwright-report/
+*.db
+*.db-journal
+
+.env*
+!.env.example

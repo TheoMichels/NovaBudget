@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { colors, shadows } from "../theme/colors";
 import { cursorPointer } from "../theme/webCursor";
+import { isLocalMode } from "../config/storageMode";
 import { useAuth } from "../hooks/useAuth";
 import { AuthModal } from "./AuthModal";
 
@@ -135,14 +136,20 @@ export function Header({
         ]}
       >
         {renderBrand()}
-        {renderActions()}
+        {isLocalMode ? (
+          <View style={[styles.localBadge, isNarrow && styles.cloudBadgeNarrow]}>
+            <Text testID="storage-mode-badge" style={styles.localBadgeText} numberOfLines={1}>
+              Stockage local
+            </Text>
+          </View>
+        ) : renderActions()}
       </View>
 
       {/* Modal d'authentification et de synchronisation */}
-      <AuthModal
+      {!isLocalMode && <AuthModal
         visible={isAuthModalVisible}
         onClose={() => setIsAuthModalVisible(false)}
-      />
+      />}
     </>
   );
 }
@@ -219,6 +226,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
     flexShrink: 0,
+  },
+  localBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    backgroundColor: colors.primaryBackground,
+    borderColor: colors.borderStrong,
+    flexShrink: 0,
+  },
+  localBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.textSecondary,
   },
   cloudBadge: {
     paddingHorizontal: 10,

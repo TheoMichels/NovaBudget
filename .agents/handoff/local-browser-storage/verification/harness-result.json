@@ -1,0 +1,9 @@
+{
+  "status": "PASS",
+  "mode": "strict",
+  "only": "",
+  "timestamp": "2026-10-15T19:59:29Z",
+  "gitHead": "54e4c78",
+  "uncommittedFiles": 28,
+  "steps": [{"name":"typecheck","status":"PASS","detail":""},{"name":"lint","status":"PASS","detail":""},{"name":"unit","status":"PASS","detail":""},{"name":"build","status":"PASS","detail":""},{"name":"e2e","status":"PASS","detail":""}]
+}

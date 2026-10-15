@@ -1,5 +1,6 @@
+import { isLocalMode } from "../config/storageMode";
 import { useCallback, useEffect, useSyncExternalStore } from "react";
-import { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
+import { Session, User } from "@supabase/supabase-js";
 import {
   getSession,
   onAuthStateChange,
@@ -36,7 +37,7 @@ interface AuthState {
 let globalAuthState: AuthState = {
   user: null,
   session: null,
-  isLoading: true,
+  isLoading: !isLocalMode,
   error: null,
 };
 
@@ -68,6 +69,7 @@ let authSubscriptionActive = false;
  * S'exécute de manière idempotente pour que tous les consommateurs partagent le même cycle.
  */
 function initAuth(): Promise<void> {
+  if (isLocalMode) return Promise.resolve();
   if (initPromise) {
     return initPromise;
   }

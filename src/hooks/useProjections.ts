@@ -1,3 +1,4 @@
+import { isLocalMode } from "../config/storageMode";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getCurrentUser, onAuthStateChange } from "../services/authService";
 import {
@@ -38,10 +39,10 @@ export function useProjections() {
     try {
       setLoading(true);
       setError(null);
-      const uid = userId ?? (await getCurrentUser())?.id ?? null;
+      const uid = isLocalMode ? null : userId ?? (await getCurrentUser())?.id ?? null;
       currentUserIdRef.current = uid;
 
-      if (!uid) {
+      if (!isLocalMode && !uid) {
         setProjects([]);
         setInflows([]);
         setMonthlyConfig(DEFAULT_MONTHLY_CONFIG);
@@ -49,9 +50,9 @@ export function useProjections() {
       }
 
       const [projData, infData, monthData] = await Promise.all([
-        getFutureProjects(uid),
-        getInflows(uid),
-        getMonthlyContribution(uid),
+        getFutureProjects(uid ?? undefined),
+        getInflows(uid ?? undefined),
+        getMonthlyContribution(uid ?? undefined),
       ]);
       setProjects(projData);
       setInflows(infData);
@@ -69,6 +70,11 @@ export function useProjections() {
 
   useEffect(() => {
     let isMounted = true;
+
+    if (isLocalMode) {
+      void load();
+      return () => { isMounted = false; };
+    }
 
     // Chargement initial
     getCurrentUser()

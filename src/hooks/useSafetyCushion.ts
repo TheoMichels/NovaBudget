@@ -1,3 +1,4 @@
+import { isLocalMode } from "../config/storageMode";
 import { useCallback, useEffect, useState } from "react";
 import { getCurrentUser, onAuthStateChange } from "../services/authService";
 import {
@@ -23,12 +24,20 @@ export function useSafetyCushion(
             setSafetyCushionTarget(val);
           }
         })
+        .catch(() => {
+          if (isMounted) setSafetyCushionTarget(defaultVal);
+        })
         .finally(() => {
           if (isMounted) {
             setLoading(false);
           }
         });
     };
+
+    if (isLocalMode) {
+      load();
+      return () => { isMounted = false; };
+    }
 
     // Chargement initial
     getCurrentUser()

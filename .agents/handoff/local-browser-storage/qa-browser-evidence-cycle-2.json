@@ -1,0 +1,137 @@
+[
+  {
+    "width": 375,
+    "bounds": [
+      {
+        "text": "Oct. 26",
+        "left": 56,
+        "right": 86.546875,
+        "x": 44
+      },
+      {
+        "text": "Oct. 27",
+        "left": 135.0598907470703,
+        "right": 165.6067657470703,
+        "x": 138.33333333333331
+      },
+      {
+        "text": "Oct. 28",
+        "left": 229.39321899414062,
+        "right": 259.9400939941406,
+        "x": 232.66666666666666
+      },
+      {
+        "text": "Oct. 29",
+        "left": 308.453125,
+        "right": 339,
+        "x": 327
+      }
+    ],
+    "spacing": [
+      48.51301574707031,
+      63.78645324707031,
+      48.513031005859375
+    ],
+    "original": {
+      "date": "📅 Octobre 2027",
+      "capital": "9 784 €"
+    },
+    "start": {
+      "date": "📅 Octobre 2026",
+      "capital": "0 €"
+    },
+    "end": {
+      "date": "📅 Octobre 2029",
+      "capital": "30 408 €"
+    },
+    "restored": {
+      "date": "📅 Octobre 2027",
+      "capital": "9 784 €"
+    },
+    "overflow": {
+      "viewport": 375,
+      "document": 375
+    },
+    "errors": [],
+    "external": [],
+    "httpErrors": []
+  },
+  {
+    "width": 1440,
+    "bounds": [
+      {
+        "text": "Oct. 26",
+        "left": 144,
+        "right": 174.546875,
+        "x": 54
+      },
+      {
+        "text": "Avr. 27",
+        "left": 325.9921875,
+        "right": 356.0078125,
+        "x": 251
+      },
+      {
+        "text": "Oct. 27",
+        "left": 522.7265625,
+        "right": 553.2734375,
+        "x": 448
+      },
+      {
+        "text": "Avr. 28",
+        "left": 719.9921875,
+        "right": 750.0078125,
+        "x": 645
+      },
+      {
+        "text": "Oct. 28",
+        "left": 916.7265625,
+        "right": 947.2734375,
+        "x": 842
+      },
+      {
+        "text": "Avr. 29",
+        "left": 1113.9921875,
+        "right": 1144.0078125,
+        "x": 1039
+      },
+      {
+        "text": "Oct. 29",
+        "left": 1295.453125,
+        "right": 1326,
+        "x": 1236
+      }
+    ],
+    "spacing": [
+      151.4453125,
+      166.71875,
+      166.71875,
+      166.71875,
+      166.71875,
+      151.4453125
+    ],
+    "original": {
+      "date": "📅 Octobre 2027",
+      "capital": "9 784 €"
+    },
+    "start": {
+      "date": "📅 Octobre 2026",
+      "capital": "0 €"
+    },
+    "end": {
+      "date": "📅 Octobre 2029",
+      "capital": "30 408 €"
+    },
+    "restored": {
+      "date": "📅 Octobre 2027",
+      "capital": "9 784 €"
+    },
+    "overflow": {
+      "viewport": 1440,
+      "document": 1440
+    },
+    "errors": [],
+    "external": [],
+    "httpErrors": []
+  }
+]

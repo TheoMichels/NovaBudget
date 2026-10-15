@@ -1,3 +1,4 @@
+import { isLocalMode } from "../config/storageMode";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getCurrentUser, onAuthStateChange } from "../services/authService";
 import {
@@ -19,15 +20,15 @@ export function useExpenses() {
     try {
       setLoading(true);
       setError(null);
-      const uid = userId ?? (await getCurrentUser())?.id ?? null;
+      const uid = isLocalMode ? null : userId ?? (await getCurrentUser())?.id ?? null;
       currentUserIdRef.current = uid;
 
-      if (!uid) {
+      if (!isLocalMode && !uid) {
         setExpenses([]);
         return;
       }
 
-      const data = await getExpenses(uid);
+      const data = await getExpenses(uid ?? undefined);
       setExpenses(data);
     } catch (e) {
       setError(
@@ -40,6 +41,11 @@ export function useExpenses() {
 
   useEffect(() => {
     let isMounted = true;
+
+    if (isLocalMode) {
+      void load();
+      return () => { isMounted = false; };
+    }
 
     // Chargement initial
     getCurrentUser()

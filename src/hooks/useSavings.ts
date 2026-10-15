@@ -1,3 +1,4 @@
+import { isLocalMode } from "../config/storageMode";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getCurrentUser, onAuthStateChange } from "../services/authService";
 import {
@@ -18,15 +19,15 @@ export function useSavings() {
     try {
       setLoading(true);
       setError(null);
-      const uid = userId ?? (await getCurrentUser())?.id ?? null;
+      const uid = isLocalMode ? null : userId ?? (await getCurrentUser())?.id ?? null;
       currentUserIdRef.current = uid;
 
-      if (!uid) {
+      if (!isLocalMode && !uid) {
         setAccounts([]);
         return;
       }
 
-      const data = await getSavings(uid);
+      const data = await getSavings(uid ?? undefined);
       setAccounts(data);
     } catch (e) {
       setError(
@@ -39,6 +40,11 @@ export function useSavings() {
 
   useEffect(() => {
     let isMounted = true;
+
+    if (isLocalMode) {
+      void load();
+      return () => { isMounted = false; };
+    }
 
     // Chargement initial
     getCurrentUser()
