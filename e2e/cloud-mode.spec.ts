@@ -115,7 +115,7 @@ test('AC-S01/02/03 cloud CRUD survives reload; empty server and pull clear cache
   await expect(page.getByText('Données restaurées depuis le Cloud avec succès !',{exact:true})).toBeVisible();
   await expect.poll(()=>page.evaluate(()=>localStorage.getItem('@novabudget_savings_v3'))).toBe('[]');
   expect(writes).toEqual(['savings_accounts','savings_accounts']);
-  expect(profiles.every(profile=>profile==='public')).toBe(true);
+  expect(profiles.every(profile=>profile==='novabudget')).toBe(true);
 });
 
 test.describe('offline cloud cache',()=>{

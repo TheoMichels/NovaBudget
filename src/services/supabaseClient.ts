@@ -86,8 +86,8 @@ export const hybridAuthStorage = {
  */
 export const supabase: SupabaseClient<Database> | null = !isLocalMode && isSupabaseConfigured
   ? createClient<Database>(supabaseUrl as string, supabaseAnonKey as string, {
-      // Compatibilité distante : public reste actif jusqu’à la bascule L6 approuvée.
-      db: { schema: "public", retry: false, timeout: 10000 },
+      // Schéma applicatif dédié novabudget, auth centralisée sur auth.users.
+      db: { schema: "novabudget", retry: false, timeout: 10000 },
       auth: {
         storage: hybridAuthStorage,
         autoRefreshToken: true,

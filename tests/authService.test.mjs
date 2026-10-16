@@ -37,7 +37,7 @@ test('AC-S04 auth success, confirmation email, session subscription and local is
   assert.equal(await local.getSession(),null);assert.equal(await local.getCurrentUser(),null);
 });
 
-test('AC-S04/05 unique typed client uses explicit public schema and URL callback only on web', () => {
+test('AC-S04/05 unique typed client uses explicit novabudget schema and URL callback only on web', () => {
   for(const os of ['web','ios']) {
     let options;
     loadTypeScript('src/services/supabaseClient.ts',{
@@ -47,7 +47,7 @@ test('AC-S04/05 unique typed client uses explicit public schema and URL callback
       '@react-native-async-storage/async-storage':{},
       '@supabase/supabase-js':{createClient(_url,_key,config){options=config;return {}; }},
     });
-    assert.equal(options.db.schema,'public');
+    assert.equal(options.db.schema,'novabudget');
     assert.equal(options.db.retry,false);
     assert.equal(options.db.timeout,10000);
     assert.equal(options.auth.detectSessionInUrl,os==='web');
