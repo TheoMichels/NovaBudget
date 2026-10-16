@@ -1,5 +1,19 @@
 import { AuthChangeEvent, AuthError, Session, User } from "@supabase/supabase-js";
 import { supabase } from "./supabaseClient";
+import { credentialsSchema, validate } from "../types/validation";
+
+function authError(error: unknown, fallback: string): Error {
+  const details = typeof error === "object" && error !== null ? error as { code?: unknown; message?: unknown } : {};
+  const code = typeof details.code === "string" ? details.code : "";
+  const message = typeof details.message === "string" ? details.message.toLowerCase() : "";
+  if (code === "invalid_credentials" || message.includes("invalid login")) return new Error("Adresse e-mail ou mot de passe incorrect.");
+  if (code === "email_not_confirmed" || message.includes("email not confirmed")) return new Error("Confirmez votre adresse e-mail avant de vous connecter.");
+  if (code === "user_already_exists" || message.includes("already registered")) return new Error("Un compte existe déjà avec cette adresse e-mail.");
+  if (code === "weak_password") return new Error("Choisissez un mot de passe plus robuste.");
+  if (code === "over_request_rate_limit" || code === "over_email_send_rate_limit" || message.includes("rate limit")) return new Error("Trop de tentatives. Patientez quelques instants puis réessayez.");
+  if (message.includes("fetch") || message.includes("network")) return new Error("Connexion au serveur impossible. Vérifiez votre connexion réseau puis réessayez.");
+  return new Error(fallback);
+}
 
 export interface AuthResponse {
   user: User | null;
@@ -33,13 +47,11 @@ export async function signUp(
   }
 
   try {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
+    const credentials = validate(credentialsSchema, { email, password });
+    const { data, error } = await supabase.auth.signUp(credentials);
 
     if (error) {
-      return { user: null, session: null, error };
+      return { user: null, session: null, error: authError(error, "Création du compte impossible. Vérifiez vos informations puis réessayez.") };
     }
 
     return {
@@ -51,7 +63,7 @@ export async function signUp(
     return {
       user: null,
       session: null,
-      error: err instanceof Error ? err : new Error("Erreur inconnue lors de l'inscription"),
+      error: authError(err, "Création du compte impossible. Vérifiez vos informations puis réessayez."),
     };
   }
 }
@@ -74,13 +86,11 @@ export async function signIn(
   }
 
   try {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const credentials = validate(credentialsSchema, { email, password });
+    const { data, error } = await supabase.auth.signInWithPassword(credentials);
 
     if (error) {
-      return { user: null, session: null, error };
+      return { user: null, session: null, error: authError(error, "Connexion impossible. Vérifiez vos informations puis réessayez.") };
     }
 
     return {
@@ -92,7 +102,7 @@ export async function signIn(
     return {
       user: null,
       session: null,
-      error: err instanceof Error ? err : new Error("Erreur inconnue lors de la connexion"),
+      error: authError(err, "Connexion impossible. Vérifiez vos informations puis réessayez."),
     };
   }
 }
@@ -107,10 +117,10 @@ export async function signOut(): Promise<SignOutResponse> {
 
   try {
     const { error } = await supabase.auth.signOut();
-    return { error: error ?? null };
+    return { error: error ? authError(error, "Déconnexion impossible. Réessayez dans quelques instants.") : null };
   } catch (err) {
     return {
-      error: err instanceof Error ? err : new Error("Erreur inconnue lors de la déconnexion"),
+      error: authError(err, "Déconnexion impossible. Réessayez dans quelques instants."),
     };
   }
 }

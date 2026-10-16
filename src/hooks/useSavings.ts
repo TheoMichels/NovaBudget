@@ -1,3 +1,4 @@
+import { getCloudReadError } from "../services/syncService";
 import { isLocalMode } from "../config/storageMode";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getCurrentUser, onAuthStateChange } from "../services/authService";
@@ -29,6 +30,7 @@ export function useSavings() {
 
       const data = await getSavings(uid ?? undefined);
       setAccounts(data);
+      setError(getCloudReadError("savings_accounts"));
     } catch (e) {
       setError(
         e instanceof Error ? e.message : "Erreur de chargement des épargnes"

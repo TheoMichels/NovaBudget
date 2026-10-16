@@ -1,3 +1,4 @@
+import { getCloudReadError } from "../services/syncService";
 import { isLocalMode } from "../config/storageMode";
 import { useCallback, useEffect, useState } from "react";
 import { getCurrentUser, onAuthStateChange } from "../services/authService";
@@ -26,6 +27,7 @@ export function useSafetyCushion(
         .then((val) => {
           if (isMounted) {
             setSafetyCushionTarget(val);
+            setError(getCloudReadError("user_settings"));
           }
         })
         .catch((e: unknown) => {

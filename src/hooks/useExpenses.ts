@@ -1,3 +1,4 @@
+import { getCloudReadError } from "../services/syncService";
 import { isLocalMode } from "../config/storageMode";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getCurrentUser, onAuthStateChange } from "../services/authService";
@@ -30,6 +31,7 @@ export function useExpenses() {
 
       const data = await getExpenses(uid ?? undefined);
       setExpenses(data);
+      setError(getCloudReadError("expenses"));
     } catch (e) {
       setError(
         e instanceof Error ? e.message : "Erreur de chargement des dépenses"

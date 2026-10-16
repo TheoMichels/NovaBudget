@@ -6,7 +6,7 @@
 - Utilisateur : moi seul · Plateformes : web PWA prioritaire (Vercel), mobile via Expo.
 
 ## Stack
-- Expo 57 + RN Web, React 19, TS strict ; Zod 3.25.76 valide formulaires, stockage et réponses métier. AsyncStorage via repositories + synchro Supabase ; auth `src/services/authService.ts`.
+- Expo 57 + RN Web, React 19, TS strict ; Zod 3.25.76 valide formulaires, stockage et réponses métier. AsyncStorage via repositories/cacheOnly ; mutations cloud centralisées dans syncService, lectures hors ligne avec cache validé ; auth française et callback web.
 - Prisma = source cible `novabudget`/`auth`, migrations baseline public puis transfert transactionnel ; PGlite 0.5.10 (dev) vérifie le SQL. Écarts temporaires : cloud/client encore `public` ; SQL Supabase historique archivé jusqu’à L6, jamais exécuté par le runner.
 - Stockage selon l'environnement : en local (origine loopback, export hors Vercel) stockage navigateur sans auth ni Supabase ; sur Vercel, auth + synchro. Ne pas activer le cloud d'après la présence des clés ou `NODE_ENV`. Détail : `docs/LOCAL_STORAGE.md`.
 
@@ -28,7 +28,7 @@
 | Compte épargne | `src/types/savingsAccount.ts` | `src/storage/savingsRepository.ts` |
 | Projection, projets, entrées | `src/types/projection.ts` | `src/storage/projectionRepository.ts` |
 | Réglages | — | `src/storage/settingsRepository.ts` |
-| Types base distante | `src/types/database.ts` | via `syncService` |
+| Types base distante | `src/types/database.ts` (MCP public 16/10/2026) | `node scripts/generate-db-types.mjs --project-id <ref> --schema public` (lecture seule) |
 
 ## Design
 - Tokens `src/theme/colors.ts` : primaire `#059669`, marque `#0F2922`, positif `#059669`, alerte `#D97706`, surfaces glass ; `radius` 12/16/20/24, `spacing` 4/8/12/16/24/32.

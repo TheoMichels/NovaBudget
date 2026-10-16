@@ -19,6 +19,10 @@ export function loadTypeScript(entry, mocks = {}, globals = {}) {
       if (Object.hasOwn(mocks, id)) return mocks[id];
       if (id.startsWith('.')) {
         const target = path.resolve(path.dirname(file), id);
+        // Un refactor d’import relatif garde la même frontière mockée (chemin résolu).
+        for (const [mockId, mock] of Object.entries(mocks)) {
+          if (mockId.startsWith('.') && path.resolve(path.dirname(file), mockId) === target) return mock;
+        }
         for (const suffix of ['', '.ts', '.tsx']) {
           if (fs.existsSync(target + suffix) && fs.statSync(target + suffix).isFile()) return load(target + suffix);
         }

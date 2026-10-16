@@ -1,3 +1,4 @@
+import { getCloudReadError } from "../services/syncService";
 import { contributionSchema, validate } from "../types/validation";
 import { isLocalMode } from "../config/storageMode";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -58,6 +59,7 @@ export function useProjections() {
       setProjects(projData);
       setInflows(infData);
       setMonthlyConfig(monthData);
+      setError(getCloudReadError("future_projects") ?? getCloudReadError("inflows") ?? getCloudReadError("user_settings"));
     } catch (e) {
       setError(
         e instanceof Error

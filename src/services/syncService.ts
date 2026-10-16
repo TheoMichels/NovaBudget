@@ -1,388 +1,207 @@
-import { remoteSavingsSchema, remoteExpenseSchema, remoteInflowSchema, remoteSettingsSchema, validate } from "../types/validation";
-import { Expense, ExpenseCategory } from "../types/expense";
-import { FutureProject, OneOffInflow } from "../types/projection";
-import { SavingsAccount, SavingsCategory } from "../types/savingsAccount";
-import {
-  ExpenseInsert,
-  FutureProjectInsert,
-  InflowInsert,
-  SavingsAccountInsert,
-  UserSettingsInsert,
-} from "../types/database";
-import { getExpenses, saveExpenses } from "../storage/expenseRepository";
-import {
-  getFutureProjects,
-  getInflows,
-  getMonthlyContribution,
-  saveFutureProjects,
-  saveInflows,
-  saveMonthlyContribution,
-} from "../storage/projectionRepository";
-import { getSavings, saveSavings } from "../storage/savingsRepository";
-import { getSafetyCushion, saveSafetyCushion } from "../storage/settingsRepository";
+import { z } from "zod";
+import { remoteSavingsSchema, remoteExpenseSchema, remoteInflowSchema, remoteSettingsSchema, moneySchema, validate } from "../types/validation";
+import type { SavingsAccount } from "../types/savingsAccount";
+import type { Expense } from "../types/expense";
+import type { OneOffInflow } from "../types/projection";
+import type { SavingsAccountInsert, ExpenseInsert, InflowInsert, UserSettingsInsert } from "../types/database";
+import { collectionCaches, monthlyCache, cushionCache, DEFAULT_MONTHLY_CONTRIBUTION, DEFAULT_SAFETY_CUSHION, CollectionItems, CollectionName } from "../storage/cacheOnly";
+import { getCurrentUser } from "./authService";
 import { supabase } from "./supabaseClient";
 
-export interface SyncResult {
-  success: boolean;
-  message?: string;
-  error?: string;
+export interface SyncResult { success: boolean; message?: string; error?: string }
+const names: CollectionName[] = ["savings_accounts", "expenses", "future_projects", "inflows"];
+const syncError = () => new Error("Synchronisation impossible. Vos modifications sont conservées dans le cache local ; réessayez lorsque la connexion est rétablie.");
+const readErrors = new Map<CollectionName | "user_settings", string>();
+export function getCloudReadError(name: CollectionName | "user_settings"): string | null {
+  return readErrors.get(name) ?? null;
 }
-
-function isTableMissingError(error: unknown): boolean {
-  if (!error) return false;
-  const details = typeof error === "object" ? error as { message?: unknown; code?: unknown } : {};
-  const msg = typeof error === "string" ? error : typeof details.message === "string" ? details.message : "";
-  const code = details.code;
-  return (
-    code === "PGRST205" ||
-    code === "42P01" ||
-    msg.includes("could not find the table") ||
-    msg.includes("does not exist") ||
-    msg.includes("schema cache")
-  );
+const readError = "Chargement distant impossible. Le cache local reste affiché ; vérifiez votre connexion puis réessayez.";
+let pendingCloud: Promise<unknown> = Promise.resolve();
+// Ordre des commandes partagé par CRUD, push et pull ; aucune dépendance vers les repositories.
+function queueCloud<T>(operation: () => Promise<T>): Promise<T> {
+  const next = pendingCloud.then(operation);
+  pendingCloud = next.catch(() => undefined);
+  return next;
 }
-
-/**
- * Envoie l'intégralité des données locales (AsyncStorage) vers Supabase pour l'utilisateur connecté.
- */
+async function owner(userId?: string): Promise<string> {
+  const id = userId ?? (await getCurrentUser())?.id;
+  if (!id) throw new Error("Connectez-vous pour synchroniser vos données.");
+  return validate(z.string().min(1), id);
+}
+function checkedOwner(value: unknown, userId: string): void {
+  validate(z.object({ user_id: z.literal(userId) }), value);
+}
+const decode: { [K in CollectionName]: (value: unknown, userId: string) => CollectionItems[K][] } = {
+  savings_accounts(value, userId) {
+    const rows = validate(remoteSavingsSchema.extend({ user_id: z.literal(userId) }).array(), value);
+    return rows.map(row => ({ id: row.id, name: row.name, category: row.category, amount: row.amount, rate: row.rate,
+      bank: row.bank ?? undefined, notes: row.notes ?? undefined, updatedAt: row.updated_at ?? "" }));
+  },
+  expenses(value, userId) { return decodeExpenses(value, userId); },
+  future_projects(value, userId) { return decodeExpenses(value, userId); },
+  inflows(value, userId) {
+    const rows = validate(remoteInflowSchema.extend({ user_id: z.literal(userId) }).array(), value);
+    return rows.map(row => ({ id: row.id, title: row.title, amount: row.amount, targetDate: row.target_date,
+      isActive: row.is_active, notes: row.notes ?? undefined, updatedAt: row.updated_at ?? "" }));
+  },
+};
+function decodeExpenses(value: unknown, userId: string): Expense[] {
+  const rows = validate(remoteExpenseSchema.extend({ user_id: z.literal(userId) }).array(), value);
+  return rows.map(row => ({ id: row.id, title: row.title, amount: row.amount, targetDate: row.target_date,
+    category: row.category, isActive: row.is_active, notes: row.notes ?? undefined, updatedAt: row.updated_at ?? "" }));
+}
+function savingsRows(items: SavingsAccount[], userId: string): SavingsAccountInsert[] {
+  return items.map(item => ({ id: item.id, user_id: userId, name: item.name, category: item.category, amount: item.amount, rate: item.rate,
+    bank: item.bank ?? null, notes: item.notes ?? null, updated_at: item.updatedAt || new Date().toISOString() }));
+}
+function expenseRows(items: Expense[], userId: string): ExpenseInsert[] {
+  return items.map(item => ({ id: item.id, user_id: userId, title: item.title, category: item.category, amount: item.amount,
+    target_date: item.targetDate, is_active: item.isActive, notes: item.notes ?? null, updated_at: item.updatedAt || new Date().toISOString() }));
+}
+function inflowRows(items: OneOffInflow[], userId: string): InflowInsert[] {
+  return items.map(item => ({ id: item.id, user_id: userId, title: item.title, amount: item.amount,
+    target_date: item.targetDate, is_active: item.isActive, notes: item.notes ?? null, updated_at: item.updatedAt || new Date().toISOString() }));
+}
+async function sendCollection<K extends CollectionName>(name: K, items: CollectionItems[K][], userId: string): Promise<void> {
+  if (!supabase || items.length === 0) return;
+  // La validation par table affine le type union avant de construire les Insert générés.
+  const response = name === "savings_accounts"
+    ? await supabase.from("savings_accounts").upsert(savingsRows(collectionCaches.savings_accounts.parse(items), userId), { onConflict: "id" })
+    : name === "inflows"
+      ? await supabase.from("inflows").upsert(inflowRows(collectionCaches.inflows.parse(items), userId), { onConflict: "id" })
+      : name === "expenses"
+        ? await supabase.from("expenses").upsert(expenseRows(collectionCaches.expenses.parse(items), userId), { onConflict: "id" })
+        : await supabase.from("future_projects").upsert(expenseRows(collectionCaches.future_projects.parse(items), userId), { onConflict: "id" });
+  if (response.error) throw syncError();
+}
+export async function upsertCloudCollection<K extends CollectionName>(name: K, items: CollectionItems[K][], userId?: string, localVersion?: number): Promise<void> {
+  if (!supabase) return;
+  const parsed = collectionCaches[name].parse(items);
+  try {
+    await queueCloud(async () => {
+      await sendCollection(name, parsed, await owner(userId));
+      if (localVersion !== undefined) collectionCaches[name].acknowledge(localVersion);
+    });
+  }
+  catch { throw syncError(); }
+}
+export async function deleteCloudItem(name: CollectionName, id: string, localVersion?: number): Promise<void> {
+  if (!supabase) return;
+  validate(z.string().min(1), id);
+  try {
+    await queueCloud(async () => {
+      const userId = await owner();
+      const { error } = await supabase!.from(name).delete().eq("id", id).eq("user_id", userId);
+      if (error) throw syncError();
+      if (localVersion !== undefined) collectionCaches[name].acknowledge(localVersion);
+    });
+  } catch { throw syncError(); }
+}
+export async function readCloudCollection<K extends CollectionName>(name: K, userId?: string): Promise<CollectionItems[K][]> {
+  const cache = collectionCaches[name];
+  const version = cache.version();
+  if (!supabase) return cache.read();
+  try {
+    await queueCloud(async () => {
+      const uid = await owner(userId);
+      const { data, error } = await supabase!.from(name as CollectionName).select("*").eq("user_id", uid).order("created_at", { ascending: true });
+      if (error) throw syncError();
+      const items = decode[name](data, uid);
+      await cache.replaceRemote(items, version);
+      readErrors.delete(name);
+    });
+    return cache.read();
+  } catch {
+    readErrors.set(name, readError);
+    return cache.read();
+  }
+}
+const settingsFields = remoteSettingsSchema.extend({ safety_cushion: remoteSettingsSchema.shape.safety_cushion.unwrap().unwrap(), monthly_savings: remoteSettingsSchema.shape.monthly_savings.unwrap().unwrap() });
+function decodeSettings(data: unknown, userId: string) {
+  if (data === null) return { safety_cushion: DEFAULT_SAFETY_CUSHION, monthly_savings: DEFAULT_MONTHLY_CONTRIBUTION.monthlyTotal };
+  checkedOwner(data, userId);
+  return validate(settingsFields, data);
+}
+export async function readCloudSettings(userId?: string): Promise<void> {
+  if (!supabase) return;
+  const versions = [cushionCache.version(), monthlyCache.version()];
+  try {
+    await queueCloud(async () => {
+      const uid = await owner(userId);
+      const { data, error } = await supabase!.from("user_settings").select("*").eq("user_id", uid).maybeSingle();
+      if (error) throw syncError();
+      const settings = decodeSettings(data, uid);
+      await cushionCache.replaceRemote(settings.safety_cushion, versions[0]);
+      await monthlyCache.replaceRemote({ monthlyTotal: settings.monthly_savings }, versions[1]);
+      readErrors.delete("user_settings");
+    });
+  } catch {
+    readErrors.set("user_settings", readError);
+  }
+}
+export async function upsertCloudSettings(settings: Pick<UserSettingsInsert, "safety_cushion" | "monthly_savings">, userId?: string, versions: { cushion?: number; monthly?: number } = {}): Promise<void> {
+  const parsed = validate(z.object({ safety_cushion: moneySchema.optional(), monthly_savings: moneySchema.optional() }).refine(value => Object.keys(value).length > 0), settings);
+  if (!supabase) return;
+  try {
+    await queueCloud(async () => {
+      const { error } = await supabase!.from("user_settings").upsert({ ...parsed, user_id: await owner(userId), updated_at: new Date().toISOString() }, { onConflict: "user_id" });
+      if (error) throw syncError();
+      if (versions.cushion !== undefined) cushionCache.acknowledge(versions.cushion);
+      if (versions.monthly !== undefined) monthlyCache.acknowledge(versions.monthly);
+    });
+  } catch { throw syncError(); }
+}
 export async function pushLocalToSupabase(userId: string): Promise<SyncResult> {
-  if (!supabase) {
-    return {
-      success: false,
-      error: "Supabase n'est pas configuré. Données conservées localement.",
-    };
-  }
-
-  if (!userId) {
-    return {
-      success: false,
-      error: "Identifiant utilisateur manquant pour la synchronisation.",
-    };
-  }
-
+  if (!supabase) return { success: false, error: "Supabase n’est pas configuré. Données locales conservées." };
   try {
-    const [savings, expenses, projects, inflows, cushion, monthly] =
-      await Promise.all([
-        getSavings(),
-        getExpenses(),
-        getFutureProjects(),
-        getInflows(),
-        getSafetyCushion(),
-        getMonthlyContribution(),
+    await queueCloud(async () => {
+      const uid = await owner(userId);
+      const versions = names.map(name => collectionCaches[name].version());
+      const settingsVersions = [cushionCache.version(), monthlyCache.version()];
+      // Tout le cache est validé avant la première écriture cloud. Aucun getter réseau.
+      const [savings, expenses, projects, inflows, cushion, monthly] = await Promise.all([
+        collectionCaches.savings_accounts.read(), collectionCaches.expenses.read(), collectionCaches.future_projects.read(),
+        collectionCaches.inflows.read(), cushionCache.read(), monthlyCache.read(),
       ]);
-
-    // 1. Savings Accounts
-    if (savings.length > 0) {
-      const savingsRows: SavingsAccountInsert[] = savings.map((s) => ({
-        id: s.id,
-        user_id: userId,
-        name: s.name,
-        category: s.category,
-        amount: s.amount,
-        rate: s.rate,
-        bank: s.bank ?? null,
-        notes: s.notes ?? null,
-        updated_at: s.updatedAt,
-      }));
-
-      const { error } = await supabase
-        .from("savings_accounts")
-        .upsert(savingsRows, { onConflict: "id" });
-      if (error) {
-        if (isTableMissingError(error)) {
-          return {
-            success: true,
-            message: "Table Supabase non initialisée. Données enregistrées en local.",
-          };
-        }
-        throw error;
-      }
-    }
-
-    // 2. Expenses
-    if (expenses.length > 0) {
-      const expenseRows: ExpenseInsert[] = expenses.map((e) => ({
-        id: e.id,
-        user_id: userId,
-        title: e.title,
-        amount: e.amount,
-        target_date: e.targetDate,
-        category: e.category,
-        is_active: e.isActive,
-        notes: e.notes ?? null,
-        updated_at: e.updatedAt,
-      }));
-
-      const { error } = await supabase
-        .from("expenses")
-        .upsert(expenseRows, { onConflict: "id" });
-      if (error) {
-        if (isTableMissingError(error)) {
-          return {
-            success: true,
-            message: "Table Supabase non initialisée. Données enregistrées en local.",
-          };
-        }
-        throw error;
-      }
-    }
-
-    // 3. Future Projects
-    if (projects.length > 0) {
-      const projectRows: FutureProjectInsert[] = projects.map((p) => ({
-        id: p.id,
-        user_id: userId,
-        title: p.title,
-        amount: p.amount,
-        target_date: p.targetDate,
-        category: p.category,
-        is_active: p.isActive,
-        notes: p.notes ?? null,
-        updated_at: p.updatedAt,
-      }));
-
-      const { error } = await supabase
-        .from("future_projects")
-        .upsert(projectRows, { onConflict: "id" });
-      if (error) {
-        if (isTableMissingError(error)) {
-          return {
-            success: true,
-            message: "Table Supabase non initialisée. Données enregistrées en local.",
-          };
-        }
-        throw error;
-      }
-    }
-
-    // 4. Inflows
-    if (inflows.length > 0) {
-      const inflowRows: InflowInsert[] = inflows.map((i) => ({
-        id: i.id,
-        user_id: userId,
-        title: i.title,
-        amount: i.amount,
-        target_date: i.targetDate,
-        is_active: i.isActive,
-        notes: i.notes ?? null,
-        updated_at: i.updatedAt,
-      }));
-
-      const { error } = await supabase
-        .from("inflows")
-        .upsert(inflowRows, { onConflict: "id" });
-      if (error) {
-        if (isTableMissingError(error)) {
-          return {
-            success: true,
-            message: "Table Supabase non initialisée. Données enregistrées en local.",
-          };
-        }
-        throw error;
-      }
-    }
-
-    // 5. User Settings
-    const settingsRow: UserSettingsInsert = {
-      user_id: userId,
-      safety_cushion: cushion,
-      monthly_savings: monthly.monthlyTotal,
-      updated_at: new Date().toISOString(),
-    };
-
-    const { error: settingsError } = await supabase
-      .from("user_settings")
-      .upsert(settingsRow, { onConflict: "user_id" });
-    if (settingsError) {
-      if (isTableMissingError(settingsError)) {
-        return {
-          success: true,
-          message: "Table Supabase non initialisée. Données enregistrées en local.",
-        };
-      }
-      throw settingsError;
-    }
-
-    return {
-      success: true,
-      message: "Synchronisation montante vers Supabase réussie.",
-    };
-  } catch (err) {
-    if (isTableMissingError(err)) {
-      return {
-        success: true,
-        message: "Tables Supabase non initialisées. Vos données sont conservées localement.",
-      };
-    }
-    const message =
-      err instanceof Error ? err.message : "Erreur lors de l'envoi des données";
-    return {
-      success: false,
-      error: message,
-    };
-  }
+      await sendCollection("savings_accounts", savings, uid);
+      await sendCollection("expenses", expenses, uid);
+      await sendCollection("future_projects", projects, uid);
+      await sendCollection("inflows", inflows, uid);
+      const { error } = await supabase!.from("user_settings").upsert({ user_id: uid, safety_cushion: cushion, monthly_savings: monthly.monthlyTotal,
+        updated_at: new Date().toISOString() }, { onConflict: "user_id" });
+      if (error) throw syncError();
+      names.forEach((name, index) => collectionCaches[name].acknowledgeSnapshot(versions[index]));
+      cushionCache.acknowledgeSnapshot(settingsVersions[0]);
+      monthlyCache.acknowledgeSnapshot(settingsVersions[1]);
+    });
+    return { success: true, message: "Données locales envoyées vers Supabase." };
+  } catch { return { success: false, error: syncError().message }; }
 }
-
-/**
- * Récupère les données depuis Supabase pour l'utilisateur connecté et met à jour le stockage local (AsyncStorage).
- */
 export async function pullSupabaseToLocal(userId: string): Promise<SyncResult> {
-  if (!supabase) {
-    return {
-      success: false,
-      error: "Supabase n'est pas configuré. Données locales conservées.",
-    };
-  }
-
-  if (!userId) {
-    return {
-      success: false,
-      error: "Identifiant utilisateur manquant pour le chargement Cloud.",
-    };
-  }
-
+  if (!supabase) return { success: false, error: "Supabase n’est pas configuré. Données locales conservées." };
+  const versions = names.map(name => collectionCaches[name].version());
+  const settingsVersions = [cushionCache.version(), monthlyCache.version()];
   try {
-    const [
-      savingsRes,
-      expensesRes,
-      projectsRes,
-      inflowsRes,
-      settingsRes,
-    ] = await Promise.all([
-      supabase.from("savings_accounts").select("*").eq("user_id", userId),
-      supabase.from("expenses").select("*").eq("user_id", userId),
-      supabase.from("future_projects").select("*").eq("user_id", userId),
-      supabase.from("inflows").select("*").eq("user_id", userId),
-      supabase
-        .from("user_settings")
-        .select("*")
-        .eq("user_id", userId)
-        .maybeSingle(),
-    ]);
-
-    const anyMissing = [
-      savingsRes.error,
-      expensesRes.error,
-      projectsRes.error,
-      inflowsRes.error,
-      settingsRes.error,
-    ].some(isTableMissingError);
-
-    if (anyMissing) {
-      return {
-        success: true,
-        message: "Tables Supabase en attente d'initialisation. Mode local actif.",
-      };
-    }
-
-    if (savingsRes.error) throw savingsRes.error;
-    if (expensesRes.error) throw expensesRes.error;
-    if (projectsRes.error) throw projectsRes.error;
-    if (inflowsRes.error) throw inflowsRes.error;
-    if (settingsRes.error) throw settingsRes.error;
-
-    // Valider tout le lot avant la première écriture locale.
-    validate(remoteSavingsSchema.array(), savingsRes.data ?? []);
-    validate(remoteExpenseSchema.array(), expensesRes.data ?? []);
-    validate(remoteExpenseSchema.array(), projectsRes.data ?? []);
-    validate(remoteInflowSchema.array(), inflowsRes.data ?? []);
-    if (settingsRes.data) validate(remoteSettingsSchema, settingsRes.data);
-
-    const hasCloudData =
-      (savingsRes.data && savingsRes.data.length > 0) ||
-      (expensesRes.data && expensesRes.data.length > 0) ||
-      (projectsRes.data && projectsRes.data.length > 0) ||
-      (inflowsRes.data && inflowsRes.data.length > 0) ||
-      Boolean(settingsRes.data);
-
-    // Si le compte Supabase est neuf et ne contient aucune donnée, on synchronise les données locales existantes vers le Cloud
-    if (!hasCloudData) {
-      return await pushLocalToSupabase(userId);
-    }
-
-    // 1. Savings
-    if (savingsRes.data) {
-      const localSavings: SavingsAccount[] = savingsRes.data.map((r) => ({
-        id: r.id,
-        name: r.name,
-        category: (r.category as SavingsCategory) || "securite",
-        amount: Number(r.amount) || 0,
-        rate: Number(r.rate) || 0,
-        bank: r.bank ?? undefined,
-        notes: r.notes ?? undefined,
-        updatedAt: r.updated_at || new Date().toISOString(),
-      }));
-      await saveSavings(localSavings);
-    }
-
-    // 2. Expenses
-    if (expensesRes.data) {
-      const localExpenses: Expense[] = expensesRes.data.map((r) => ({
-        id: r.id,
-        title: r.title,
-        amount: Number(r.amount) || 0,
-        targetDate: r.target_date,
-        category: (r.category as ExpenseCategory) || "autre",
-        isActive: Boolean(r.is_active),
-        notes: r.notes ?? undefined,
-        updatedAt: r.updated_at || new Date().toISOString(),
-      }));
-      await saveExpenses(localExpenses);
-    }
-
-    // 3. Projects
-    if (projectsRes.data) {
-      const localProjects: FutureProject[] = projectsRes.data.map((r) => ({
-        id: r.id,
-        title: r.title,
-        amount: Number(r.amount) || 0,
-        targetDate: r.target_date,
-        category: (r.category as ExpenseCategory) || "autre",
-        isActive: Boolean(r.is_active),
-        notes: r.notes ?? undefined,
-        updatedAt: r.updated_at || new Date().toISOString(),
-      }));
-      await saveFutureProjects(localProjects);
-    }
-
-    // 4. Inflows
-    if (inflowsRes.data) {
-      const localInflows: OneOffInflow[] = inflowsRes.data.map((r) => ({
-        id: r.id,
-        title: r.title,
-        amount: Number(r.amount) || 0,
-        targetDate: r.target_date,
-        isActive: Boolean(r.is_active),
-        notes: r.notes ?? undefined,
-        updatedAt: r.updated_at || new Date().toISOString(),
-      }));
-      await saveInflows(localInflows);
-    }
-
-    // 5. Settings
-    if (settingsRes.data) {
-      if (typeof settingsRes.data.safety_cushion === "number") {
-        await saveSafetyCushion(settingsRes.data.safety_cushion);
-      }
-      if (typeof settingsRes.data.monthly_savings === "number") {
-        await saveMonthlyContribution({
-          monthlyTotal: settingsRes.data.monthly_savings,
-        });
-      }
-    }
-
-    return {
-      success: true,
-      message: "Synchronisation descendante depuis Supabase réussie.",
-    };
-  } catch (err) {
-    const message =
-      err instanceof Error
-        ? err.message
-        : "Erreur lors du chargement des données depuis Supabase";
-    return {
-      success: false,
-      error: message,
-    };
-  }
+    await queueCloud(async () => {
+      const uid = await owner(userId);
+      const responses = await Promise.all(names.map(name => supabase!.from(name as CollectionName).select("*").eq("user_id", uid).order("created_at", { ascending: true })));
+      const settingsResponse = await supabase!.from("user_settings").select("*").eq("user_id", uid).maybeSingle();
+      if (responses.some(response => response.error) || settingsResponse.error) throw syncError();
+      // Valider toutes les réponses avant de remplacer la moindre clé, même si une collection est vide.
+      const savings = decode.savings_accounts(responses[0].data, uid);
+      const expenses = decode.expenses(responses[1].data, uid);
+      const projects = decode.future_projects(responses[2].data, uid);
+      const inflows = decode.inflows(responses[3].data, uid);
+      const settings = decodeSettings(settingsResponse.data, uid);
+      // Une corruption locale doit interrompre le lot avant la première écriture de remplacement.
+      await Promise.all([...names.map(name => collectionCaches[name].read()), cushionCache.read(), monthlyCache.read()]);
+      const replaced = await Promise.all([
+        collectionCaches.savings_accounts.replaceRemote(savings, versions[0], true), collectionCaches.expenses.replaceRemote(expenses, versions[1], true),
+        collectionCaches.future_projects.replaceRemote(projects, versions[2], true), collectionCaches.inflows.replaceRemote(inflows, versions[3], true),
+        cushionCache.replaceRemote(settings.safety_cushion, settingsVersions[0], true), monthlyCache.replaceRemote({ monthlyTotal: settings.monthly_savings }, settingsVersions[1], true),
+      ]);
+      if (replaced.some(value => !value)) throw new Error("Des modifications locales récentes ont été conservées. Relancez la synchronisation.");
+    });
+    return { success: true, message: "Données Supabase chargées dans le cache local." };
+  } catch { return { success: false, error: syncError().message }; }
 }

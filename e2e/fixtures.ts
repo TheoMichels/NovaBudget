@@ -10,14 +10,17 @@ const IGNORED: RegExp[] = [
   /Download the React DevTools/i,
 ];
 
-type Fixtures = { consoleGuard: void };
+type Fixtures = { consoleGuard: void; expectedOfflineSupabase: boolean };
 
 export const test = base.extend<Fixtures>({
+  expectedOfflineSupabase: [false, { option: true }],
   consoleGuard: [
-    async ({ page }, use) => {
+    async ({ page, expectedOfflineSupabase }, use) => {
       const errors: string[] = [];
       page.on('console', (msg) => {
-        if (msg.type() === 'error' && !IGNORED.some((r) => r.test(msg.text()))) {
+        const expectedTransportFailure = expectedOfflineSupabase && /net::ERR_INTERNET_DISCONNECTED/.test(msg.text()) &&
+          /^https:\/\/synthetic\.supabase\.invalid\/rest\/v1\//.test(msg.location().url);
+        if (msg.type() === 'error' && !expectedTransportFailure && !IGNORED.some((r) => r.test(msg.text()))) {
           errors.push(`console.error: ${msg.text()}`);
         }
       });

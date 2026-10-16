@@ -19,6 +19,7 @@ test('AC-01 rapid monthly increments are visible before cloud persistence comple
     },
     '../config/storageMode': { isLocalMode: true },
     '../services/authService': {},
+    '../services/syncService': { getCloudReadError: () => null },
     '../storage/projectionRepository': {
       saveMonthlyContribution: config => new Promise(resolve => { pending.push({ total: config.monthlyTotal, resolve }); }),
     },

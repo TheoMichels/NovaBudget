@@ -31,3 +31,26 @@ npm run test:e2e
 ```
 
 Les tests E2E construisent trois exports synthétiques sous `.agents/state/test-builds/` et les servent sur 4173, 4174 et 4175. `EXPO_NO_DOTENV=1` exclut `.env` ; seules des clés factices sont incorporées. L'origine distante virtuelle `https://budget.example` est interceptée et servie depuis localhost. Les requêtes Supabase cloud sont simulées, sans compte réel. Chromium se prépare avec `npx playwright install chromium`. Les données, traces et exports de test sont ignorés par Git.
+
+# Cache et synchronisation cloud (lot L5)
+
+Les repositories conservent leurs interfaces et les six clés v3. `storage/cacheOnly.ts` gère uniquement le cache validé et sérialise ses écritures ; toutes les mutations métier Supabase passent par `services/syncService.ts`.
+Le cache est écrit avant l’attente réseau. Les requêtes PostgREST sont bornées à 10 secondes et les retries automatiques du SDK sont désactivés : l’action Réessayer de l’interface contrôle la reprise et le cache n’attend pas les backoffs réseau cumulés. Les commandes cloud sont ordonnées pour préserver les modifications rapides et les suppressions confirmées ; chaque commande locale garde son propre jeton non confirmé, qu’un succès sur un autre élément ne peut pas effacer. Push confirme les seules écritures couvertes par son snapshot, jamais une suppression en échec. Les jetons ne persistent pas après fermeture et un Pull explicite peut remplacer les changements antérieurs ; les réponses de mutation ne remplacent jamais une version locale plus récente. Les chargements distants utilisent une révision pour écarter une réponse périmée.
+En cas de panne de lecture cloud, le cache validé reste affiché avec un message français et Réessayer. Un cache corrompu n’est ni masqué ni écrasé. Les erreurs de mutation sont renvoyées au formulaire ; les modifications restent en cache. Il n’existe pas de file de reprise persistante après fermeture de l’app : relancer explicitement Push après une panne, avec les limites ci-dessous.
+Push lit seulement le cache (aucune lecture cloud) et valide tout le lot avant la première mutation. Pull lit seulement le cloud, valide toutes les réponses avant la première écriture locale, remplace aussi les collections vides et rétablit les réglages par défaut si la ligne distante est absente. Il n’amorce jamais un compte vide en envoyant le cache.
+Push est un envoi des éléments présents, pas un remplacement global du serveur : il n’infère pas de suppressions à partir d’une absence. Une suppression en échec réseau doit être retentée explicitement avant Pull ; seul un DELETE réussi confirme sa propagation. Une fermeture pendant une commande réseau ne garantit pas sa reprise automatique. Les tables cloud ne sont pas écrites atomiquement entre elles : les lots sont validés intégralement avant envoi, mais une panne réseau peut interrompre un push après une première table.
+Les quatre états d’interface existants restent utilisés : chargement, vide, données et erreur ; une erreur cloud de lecture accompagne les données du cache sans les masquer. Aucun écran ni token n’a été modifié.
+
+# Types Supabase et authentification
+
+`src/types/database.ts` contient le contrat réellement généré par le MCP Supabase `generate_typescript_types` le 16/10/2026 depuis le projet `skzehjvqvdbxfehbrgzu`, schéma **public** (PostgREST 14.18). Les quinze alias Row/Insert/Update sont dérivés de ce contrat ; aucun champ n’est maintenu à la main. Le fichier temporaire de passation a été intégré puis retiré pour éviter deux copies concurrentes.
+Le client unique configure explicitement `db.schema = public`, en compatibilité avec la base réelle. La cible Prisma `novabudget` sera activée seulement pendant la bascule L6 autorisée, avec régénération des types correspondants et contrôle de l’exposition API.
+Pour régénérer le contrat, installer/authentifier la CLI Supabase selon sa [documentation officielle](https://supabase.com/docs/guides/api/rest/generating-types), vérifier `supabase gen types --help`, puis lancer :
+
+```sh
+node scripts/generate-db-types.mjs --project-id skzehjvqvdbxfehbrgzu --schema public
+npm run typecheck
+```
+
+Le script appelle uniquement `supabase gen types typescript` avec un schéma explicite public/novabudget ; il introspecte la structure, ne lit ni ne reproduit les lignes et n’applique aucune migration. En cas d’échec, le fichier existant est conservé. Les tests du script substituent le runner, sans appel réseau. La commande réelle n’a pas été exécutée pendant L5 (source MCP fournie).
+Les erreurs d’inscription/connexion/déconnexion sont traduites en français sans afficher les détails privés du serveur. Le client détecte les callbacks de session dans l’URL sur le web ; le mode local ne crée aucun client Supabase et ne lance pas d’authentification.
