@@ -27,7 +27,7 @@ La génération du client reste `npm install`/`npx prisma generate`, indépendan
 2. Comparer la base réelle à la baseline : colonnes/types/defaults, PK/FK/CHECK, index, RLS/policies, triggers ; inventorier grants et dépendances. Tout écart bloque l’adoption jusqu’à résolution/revue. PGlite prouve l’équivalence avec le SQL historique, pas l’absence de dérive distante.
 3. Après comparaison conforme et confirmation utilisateur, marquer manuellement la baseline appliquée : `prisma migrate resolve --applied 20261016000100_public_baseline`, avec connexion directe et même schéma de suivi Prisma qu’au déploiement. **Commande jamais exécutée pendant ce lot.**
 4. Contrôler `prisma migrate status` : baseline adoptée, seul transfert en attente. Le paramètre `schema` de l’URL détermine l’emplacement du suivi `_prisma_migrations` : le garder identique entre resolve/deploy.
-5. Suivre `.agents/handoff/migrate-prisma-stack/l6-plan.md` pour la coordination SQL/API/client et le retour arrière.
+5. Suivre `docs/handoff/l6-plan.md` pour la coordination SQL/API/client et le retour arrière.
 
 ## Commandes et déploiement Web
 Ne pas utiliser `prisma db push`, `migrate reset`, `migrate dev` sur la base partagée ni rejouer le SQL Supabase historique. Le script `db:push` a été supprimé.

@@ -24,3 +24,7 @@ playwright-report/
 
 .env*
 !.env.example
+
+# Artefacts d'agents (rapports, captures, logs)
+.agents/handoff/
+*.tsbuildinfo
