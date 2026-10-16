@@ -1,4 +1,5 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { moneySchema, remoteSettingsSchema, validate } from "../types/validation";
+import { readStored, writeStored } from "./validatedStorage";
 import { getCurrentUser } from "../services/authService";
 import { supabase } from "../services/supabaseClient";
 
@@ -6,19 +7,11 @@ export const DEFAULT_SAFETY_CUSHION = 20000;
 const STORAGE_KEY = "@novabudget_safety_cushion_v3";
 
 async function getLocalSafetyCushion(): Promise<number> {
-  try {
-    const val = await AsyncStorage.getItem(STORAGE_KEY);
-    if (val && !isNaN(Number(val))) {
-      return Number(val);
-    }
-  } catch {}
-  return DEFAULT_SAFETY_CUSHION;
+  return readStored(STORAGE_KEY, moneySchema, DEFAULT_SAFETY_CUSHION);
 }
 
 async function saveLocalSafetyCushion(amount: number): Promise<void> {
-  try {
-    await AsyncStorage.setItem(STORAGE_KEY, String(amount));
-  } catch {}
+  await writeStored(STORAGE_KEY, moneySchema, amount);
 }
 
 export async function getSafetyCushion(userId?: string): Promise<number> {
@@ -43,7 +36,7 @@ export async function getSafetyCushion(userId?: string): Promise<number> {
       data.safety_cushion != null &&
       !isNaN(Number(data.safety_cushion))
     ) {
-      const val = Number(data.safety_cushion);
+      const val = validate(remoteSettingsSchema, data).safety_cushion!;
       await saveLocalSafetyCushion(val);
       return val;
     }

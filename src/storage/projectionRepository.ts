@@ -1,4 +1,5 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { expenseSchema, expenseInputSchema, inflowSchema, inflowInputSchema, contributionSchema, remoteExpenseSchema, remoteInflowSchema, remoteSettingsSchema, validate } from "../types/validation";
+import { readStored, writeStored } from "./validatedStorage";
 import { getCurrentUser } from "../services/authService";
 import { supabase } from "../services/supabaseClient";
 import {
@@ -36,6 +37,7 @@ function sanitizeExpenseCategory(cat: string): ExpenseCategory {
 }
 
 function mapFutureProjectRow(row: FutureProjectRow): FutureProject {
+  validate(remoteExpenseSchema, row);
   return {
     id: row.id,
     title: row.title,
@@ -49,6 +51,7 @@ function mapFutureProjectRow(row: FutureProjectRow): FutureProject {
 }
 
 function mapInflowRow(row: InflowRow): OneOffInflow {
+  validate(remoteInflowSchema, row);
   return {
     id: row.id,
     title: row.title,
@@ -60,10 +63,11 @@ function mapInflowRow(row: InflowRow): OneOffInflow {
   };
 }
 
-function isTableMissingError(error: any): boolean {
+function isTableMissingError(error: unknown): boolean {
   if (!error) return false;
-  const msg = typeof error === "string" ? error : error?.message || "";
-  const code = error?.code || "";
+  const details = typeof error === "object" ? error as { message?: unknown; code?: unknown } : {};
+  const msg = typeof error === "string" ? error : typeof details.message === "string" ? details.message : "";
+  const code = details.code;
   return (
     code === "PGRST205" ||
     msg.includes("could not find the table") ||
@@ -74,41 +78,19 @@ function isTableMissingError(error: any): boolean {
 // ---------------- LOCAL STORAGE HELPERS ----------------
 
 async function getLocalProjects(): Promise<FutureProject[]> {
-  try {
-    const json = await AsyncStorage.getItem(STORAGE_KEY_PROJECTS);
-    if (!json) return [];
-    const parsed = JSON.parse(json);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
+  return readStored(STORAGE_KEY_PROJECTS, expenseSchema.array(), []);
 }
 
 async function saveLocalProjects(projects: FutureProject[]): Promise<void> {
-  try {
-    await AsyncStorage.setItem(STORAGE_KEY_PROJECTS, JSON.stringify(projects));
-  } catch (error) {
-    console.error("Failed to save future projects to local storage:", error);
-  }
+  await writeStored(STORAGE_KEY_PROJECTS, expenseSchema.array(), projects);
 }
 
 async function getLocalInflows(): Promise<OneOffInflow[]> {
-  try {
-    const json = await AsyncStorage.getItem(STORAGE_KEY_INFLOWS);
-    if (!json) return [];
-    const parsed = JSON.parse(json);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
+  return readStored(STORAGE_KEY_INFLOWS, inflowSchema.array(), []);
 }
 
 async function saveLocalInflows(inflows: OneOffInflow[]): Promise<void> {
-  try {
-    await AsyncStorage.setItem(STORAGE_KEY_INFLOWS, JSON.stringify(inflows));
-  } catch (error) {
-    console.error("Failed to save inflows to local storage:", error);
-  }
+  await writeStored(STORAGE_KEY_INFLOWS, inflowSchema.array(), inflows);
 }
 
 // ---------------- PROJECTS ----------------
@@ -199,6 +181,7 @@ export async function addFutureProject(
   data: Omit<FutureProject, "id" | "updatedAt">,
   userId?: string
 ): Promise<FutureProject> {
+  validate(expenseInputSchema, data);
   const newId =
     "proj_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6);
 
@@ -271,6 +254,7 @@ export async function updateFutureProject(
   id: string,
   updates: Partial<Omit<FutureProject, "id">>
 ): Promise<FutureProject | null> {
+  validate(expenseInputSchema.partial(), updates);
   const currentLocal = await getLocalProjects();
   const idx = currentLocal.findIndex((p) => p.id === id);
   let updatedLocal: FutureProject | null = null;
@@ -453,6 +437,7 @@ export async function addInflow(
   data: Omit<OneOffInflow, "id" | "updatedAt">,
   userId?: string
 ): Promise<OneOffInflow> {
+  validate(inflowInputSchema, data);
   const newId =
     "inf_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6);
 
@@ -522,6 +507,7 @@ export async function updateInflow(
   id: string,
   updates: Partial<Omit<OneOffInflow, "id">>
 ): Promise<OneOffInflow | null> {
+  validate(inflowInputSchema.partial(), updates);
   const currentLocal = await getLocalInflows();
   const idx = currentLocal.findIndex((i) => i.id === id);
   let updatedLocal: OneOffInflow | null = null;
@@ -621,16 +607,8 @@ export async function getMonthlyContribution(
 ): Promise<MonthlyContributionConfig> {
   const DEFAULT_CONFIG: MonthlyContributionConfig = { monthlyTotal: 800 };
 
+  const localConfig = await readStored(STORAGE_KEY_CONTRIBUTION, contributionSchema, DEFAULT_CONFIG);
   try {
-    const json = await AsyncStorage.getItem(STORAGE_KEY_CONTRIBUTION);
-    let localConfig = DEFAULT_CONFIG;
-    if (json) {
-      const parsed = JSON.parse(json);
-      if (typeof parsed?.monthlyTotal === "number") {
-        localConfig = parsed;
-      }
-    }
-
     if (!supabase) return localConfig;
     const uid = userId ?? (await getCurrentUser())?.id;
     if (!uid) return localConfig;
@@ -660,19 +638,16 @@ export async function getMonthlyContribution(
     }
 
     const config = {
-      monthlyTotal: Number(data.monthly_savings),
+      monthlyTotal: validate(remoteSettingsSchema, data).monthly_savings!,
     };
-    await AsyncStorage.setItem(
-      STORAGE_KEY_CONTRIBUTION,
-      JSON.stringify(config)
-    );
+    await writeStored(STORAGE_KEY_CONTRIBUTION, contributionSchema, config);
     return config;
   } catch (error) {
     console.warn(
       "Failed to load monthly contribution, fallback local:",
       error
     );
-    return DEFAULT_CONFIG;
+    return localConfig;
   }
 }
 
@@ -680,14 +655,7 @@ export async function saveMonthlyContribution(
   config: MonthlyContributionConfig,
   userId?: string
 ): Promise<void> {
-  try {
-    await AsyncStorage.setItem(
-      STORAGE_KEY_CONTRIBUTION,
-      JSON.stringify(config)
-    );
-  } catch (e) {
-    console.error("Failed to save monthly contribution locally:", e);
-  }
+  await writeStored(STORAGE_KEY_CONTRIBUTION, contributionSchema, config);
 
   if (!supabase) return;
   const uid = userId ?? (await getCurrentUser())?.id;

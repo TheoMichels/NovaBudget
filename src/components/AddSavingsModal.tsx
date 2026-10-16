@@ -1,3 +1,4 @@
+import { savingsInputSchema, parseFrenchNumber, validate } from "../types/validation";
 import React, { useState } from "react";
 import {
   Modal,
@@ -58,21 +59,19 @@ export function AddSavingsModal({
       return;
     }
 
-    const cleanAmountStr = amount.replace(/[^\d.,]/g, "").replace(",", ".");
-    const cleanRateStr = rate.replace(/[^\d.,]/g, "").replace(",", ".");
-
-    const parsedAmount = parseFloat(cleanAmountStr);
-    const parsedRate = parseFloat(cleanRateStr);
+    const parsedAmount = parseFrenchNumber(amount);
+    const parsedRate = parseFrenchNumber(rate);
 
     setSubmitError(null);
     setIsSubmitting(true);
 
     try {
+      validate(savingsInputSchema, { name: name.trim(), category, amount: parsedAmount, rate: parsedRate });
       await onSubmit({
         name: name.trim(),
         category,
-        amount: isNaN(parsedAmount) ? 0 : parsedAmount,
-        rate: isNaN(parsedRate) ? 0 : parsedRate,
+        amount: parsedAmount,
+        rate: parsedRate,
         bank: bank.trim() || "Banque",
       });
 
@@ -117,7 +116,7 @@ export function AddSavingsModal({
 
           <ScrollView style={styles.form} showsVerticalScrollIndicator={false}>
             {submitError ? (
-              <View style={styles.errorBox}>
+              <View testID="form-error" accessibilityRole="alert" style={styles.errorBox}>
                 <Text style={styles.errorText}>⚠️ {submitError}</Text>
               </View>
             ) : null}
@@ -129,7 +128,7 @@ export function AddSavingsModal({
                 style={styles.textInput}
                 placeholder="Ex: Livret A BoursoBank, PEA Fortuneo..."
                 placeholderTextColor={colors.textMuted}
-                value={name}
+                testID="form-name" value={name}
                 onChangeText={(val) => {
                   setName(val);
                   if (submitError) setSubmitError(null);
@@ -208,7 +207,7 @@ export function AddSavingsModal({
                   placeholderTextColor={colors.textMuted}
                   keyboardType="decimal-pad"
                   inputMode="decimal"
-                  value={amount}
+                  testID="form-amount" value={amount}
                   onChangeText={(val) => {
                     setAmount(val);
                     if (submitError) setSubmitError(null);
@@ -225,7 +224,7 @@ export function AddSavingsModal({
                   placeholderTextColor={colors.textMuted}
                   keyboardType="decimal-pad"
                   inputMode="decimal"
-                  value={rate}
+                  testID="form-rate" value={rate}
                   onChangeText={(val) => {
                     setRate(val);
                     if (submitError) setSubmitError(null);

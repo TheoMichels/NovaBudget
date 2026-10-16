@@ -1,6 +1,9 @@
 import React, { useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  View,
+  Text,
+  Pressable,
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
@@ -10,7 +13,7 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
-import { gradient } from "./src/theme/colors";
+import { colors, radius, spacing, gradient } from "./src/theme/colors";
 import { isLocalMode } from "./src/config/storageMode";
 import { useAuth } from "./src/hooks/useAuth";
 import { AuthScreen } from "./src/components/AuthScreen";
@@ -41,9 +44,10 @@ function AuthenticatedDashboard(): React.JSX.Element {
   const [selectedMonthIndex, setSelectedMonthIndex] = useState(12);
 
   // Hooks métiers
-  const { accounts, addAccount, updateAccount, removeAccount } = useSavings();
+  const { accounts, addAccount, updateAccount, removeAccount, loading: savingsLoading, error: savingsError, reload: reloadSavings } = useSavings();
   const {
     expenses,
+    loading: expensesLoading, error: expensesError, reload: reloadExpenses,
     addExpense,
     toggleExpenseActive,
     removeExpense,
@@ -51,6 +55,7 @@ function AuthenticatedDashboard(): React.JSX.Element {
   } = useExpenses();
   const {
     projects,
+    loading: projectionsLoading, error: projectionsError, reload: reloadProjections,
     inflows,
     monthlyConfig,
     addInflow,
@@ -59,7 +64,7 @@ function AuthenticatedDashboard(): React.JSX.Element {
     removeInflow,
     updateMonthlyTotal,
   } = useProjections();
-  const { safetyCushionTarget, updateSafetyCushionTarget } = useSafetyCushion();
+  const { safetyCushionTarget, updateSafetyCushionTarget, loading: cushionLoading, error: cushionError, reload: reloadCushion } = useSafetyCushion();
 
   // Consolidation des dépenses planifiées (supporte les dépenses et rétro-compatibilité avec les projets futurs)
   const allPlannedExpenses: Expense[] = useMemo(() => {
@@ -168,6 +173,28 @@ function AuthenticatedDashboard(): React.JSX.Element {
             ]}
             showsVerticalScrollIndicator={false}
           >
+            {(savingsError || expensesError || projectionsError || cushionError) && (
+              <View testID="dashboard-error" accessibilityRole="alert" style={styles.statusCard}>
+                <Text style={{ color: colors.danger }}>{savingsError || expensesError || projectionsError || cushionError}</Text>
+                <Pressable testID="dashboard-retry" accessibilityRole="button" onPress={() => { void reloadSavings(); void reloadExpenses(); void reloadProjections(); void reloadCushion(); }} style={{ minHeight: 44, justifyContent: "center" }}>
+                  <Text style={{ color: colors.primary }}>Réessayer</Text>
+                </Pressable>
+              </View>
+            )}
+            {(savingsLoading || expensesLoading || projectionsLoading || cushionLoading) && (
+              <View testID="dashboard-loading" accessibilityLabel="Chargement du tableau de bord" style={styles.statusCard}>
+                <View style={{ height: 24, backgroundColor: colors.primarySoft, borderRadius: radius.sm }} />
+                <View style={{ height: 48, marginTop: spacing.md, backgroundColor: colors.panelSubtle, borderRadius: radius.sm }} />
+              </View>
+            )}
+            {!savingsLoading && !expensesLoading && !projectionsLoading && !cushionLoading && !savingsError && !expensesError && !projectionsError && !cushionError && !accounts.length && !allPlannedExpenses.length && !inflows.length && (
+              <View testID="dashboard-empty" style={styles.statusCard}>
+                <Text style={{ color: colors.textPrimary }}>◇ Commencez votre suivi budgétaire</Text>
+                <Pressable testID="dashboard-first-account" accessibilityRole="button" onPress={() => setIsAddSavingsVisible(true)} style={{ minHeight: 44, justifyContent: "center" }}>
+                  <Text style={{ color: colors.primary }}>Ajouter mon premier compte</Text>
+                </Pressable>
+              </View>
+            )}
             {/* 1. Les 3 informations utiles en haut */}
             <UnifiedKpiCards
               totalSavings={totalSavings}
@@ -271,6 +298,7 @@ export default function App(): React.JSX.Element {
 }
 
 const styles = StyleSheet.create({
+  statusCard: { padding: spacing.lg, marginBottom: spacing.lg, borderRadius: radius.lg, backgroundColor: colors.panel, gap: spacing.sm },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",

@@ -1,3 +1,4 @@
+import { contributionSchema, validate } from "../types/validation";
 import { isLocalMode } from "../config/storageMode";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getCurrentUser, onAuthStateChange } from "../services/authService";
@@ -189,12 +190,14 @@ export function useProjections() {
   // Monthly Config Handlers
   const handleUpdateMonthlyTotal = useCallback(
     async (total: number) => {
-      const safeTotal = Math.max(0, total);
-      const newConfig: MonthlyContributionConfig = {
-        monthlyTotal: safeTotal,
-      };
-      setMonthlyConfig(newConfig);
-      await saveMonthlyContribution(newConfig);
+      try {
+        const newConfig = validate(contributionSchema, { monthlyTotal: total });
+        setMonthlyConfig(newConfig);
+        await saveMonthlyContribution(newConfig);
+        setError(null);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Enregistrement impossible.");
+      }
     },
     []
   );

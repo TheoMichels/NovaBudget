@@ -1,21 +1,11 @@
+import { isSupabaseConfigured, supabaseUrl, supabaseAnonKey } from "../config/supabase";
 import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { isLocalMode } from "../config/storageMode";
 import { Database } from "../types/database";
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL?.trim();
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY?.trim();
-
-/**
- * Indique si Supabase est correctement configuré avec ses variables d'environnement Expo.
- */
-export const isSupabaseConfigured: boolean = Boolean(
-  supabaseUrl &&
-    supabaseAnonKey &&
-    supabaseUrl.startsWith("http") &&
-    supabaseUrl !== "https://placeholder.supabase.co"
-);
+export { isSupabaseConfigured } from "../config/supabase";
 
 /**
  * Adaptateur de stockage hybride pour Supabase Auth :

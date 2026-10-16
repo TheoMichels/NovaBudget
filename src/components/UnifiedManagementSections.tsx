@@ -1,3 +1,4 @@
+import { moneySchema, parseFrenchNumber } from "../types/validation";
 import React, { useEffect, useState } from "react";
 import {
   Modal,
@@ -80,6 +81,13 @@ export function UnifiedManagementSections({
   const isMobile = width < 600;
   const isNarrow = width < 420;
 
+  const [actionError, setActionError] = useState<string | null>(null);
+  const runAction = async (action: () => unknown) => {
+    try { setActionError(null); await action(); } catch (e) {
+      setActionError(e instanceof Error ? e.message : "Enregistrement impossible. Réessayez.");
+    }
+  };
+
   // Inline edit state for savings account amount
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
   const [editAccountAmountStr, setEditAccountAmountStr] = useState<string>("");
@@ -129,9 +137,10 @@ export function UnifiedManagementSections({
 
   const handleConfirmEditAccount = (id: string) => {
     const cleaned = editAccountAmountStr.replace(/\s/g, "").replace(",", ".");
-    const parsed = parseFloat(cleaned);
+    const parsed = parseFrenchNumber(cleaned);
+    if (!moneySchema.safeParse(parsed).success) { setActionError("Montant invalide. Saisissez un nombre positif ou nul."); return; }
     if (!isNaN(parsed) && parsed >= 0) {
-      onUpdateAccountAmount(id, parsed);
+      void runAction(() => onUpdateAccountAmount(id, parsed));
     }
     setEditingAccountId(null);
     setEditAccountAmountStr("");
@@ -150,9 +159,10 @@ export function UnifiedManagementSections({
 
   const handleConfirmEditMonthly = () => {
     const cleaned = editMonthlySavingsStr.replace(/\s/g, "").replace(",", ".");
-    const parsed = parseFloat(cleaned);
+    const parsed = parseFrenchNumber(cleaned);
+    if (!moneySchema.safeParse(parsed).success) { setActionError("Montant invalide. Saisissez un nombre positif ou nul."); return; }
     if (!isNaN(parsed) && parsed >= 0) {
-      onUpdateMonthlySavings(Math.round(parsed));
+      void runAction(() => onUpdateMonthlySavings(Math.round(parsed)));
     }
     setIsEditingMonthlySavings(false);
     setEditMonthlySavingsStr("");
@@ -160,33 +170,29 @@ export function UnifiedManagementSections({
 
   const handleApplyStepper = (delta: number) => {
     const nextVal = Math.max(0, monthlySavings + delta);
-    onUpdateMonthlySavings(nextVal);
+    void runAction(() => onUpdateMonthlySavings(nextVal));
   };
 
   // Handlers for direct safety cushion input
   const handleSafetyCushionChangeText = (text: string) => {
-    // Only allow digits
-    const cleaned = text.replace(/[^0-9]/g, "");
-    setSafetyCushionInputText(cleaned);
-    if (cleaned !== "") {
-      const parsed = parseInt(cleaned, 10);
-      if (!isNaN(parsed) && parsed >= 0) {
-        onUpdateSafetyCushion?.(parsed);
-      }
+    setSafetyCushionInputText(text);
+    const parsed = parseFrenchNumber(text);
+    if (moneySchema.safeParse(parsed).success) {
+      onUpdateSafetyCushion?.(parsed);
     }
   };
 
   const handleSafetyCushionBlur = () => {
     setIsSafetyCushionFocused(false);
-    const parsed = parseInt(safetyCushionInputText, 10);
-    if (isNaN(parsed) || parsed < 0) {
-      const fallback = safetyCushionTarget > 0 ? safetyCushionTarget : DEFAULT_SAFETY_CUSHION;
-      setSafetyCushionInputText(String(fallback));
-      onUpdateSafetyCushion?.(fallback);
-    } else {
-      setSafetyCushionInputText(String(parsed));
-      onUpdateSafetyCushion?.(parsed);
+    const parsed = parseFrenchNumber(safetyCushionInputText);
+    if (!moneySchema.safeParse(parsed).success) {
+      setActionError("Seuil invalide. Saisissez un nombre positif ou nul.");
+      setSafetyCushionInputText(String(safetyCushionTarget));
+      return;
     }
+    setActionError(null);
+    setSafetyCushionInputText(String(parsed));
+    onUpdateSafetyCushion?.(parsed);
   };
 
   // Handlers for expense date editing
@@ -197,7 +203,7 @@ export function UnifiedManagementSections({
 
   const handleConfirmExpenseDate = () => {
     if (editingExpenseForDate && tempExpenseDate) {
-      onUpdateExpenseDate(editingExpenseForDate.id, tempExpenseDate);
+      void runAction(() => onUpdateExpenseDate(editingExpenseForDate.id, tempExpenseDate));
     }
     setEditingExpenseForDate(null);
   };
@@ -211,7 +217,7 @@ export function UnifiedManagementSections({
 
   const handleConfirmInflowDate = () => {
     if (editingInflowForDate && tempInflowDate && onUpdateInflowDate) {
-      onUpdateInflowDate(editingInflowForDate.id, tempInflowDate);
+      void runAction(() => onUpdateInflowDate(editingInflowForDate.id, tempInflowDate));
     }
     setEditingInflowForDate(null);
   };
@@ -313,7 +319,7 @@ export function UnifiedManagementSections({
 
                       <Pressable
                         style={[styles.btnDelete, cursorPointer]}
-                        onPress={() => onRemoveAccount(acc.id)}
+                        onPress={() => { void runAction(() => onRemoveAccount(acc.id)); }}
                         hitSlop={8}
                         accessibilityLabel={`Supprimer ${acc.name}`}
                       >
@@ -552,7 +558,7 @@ export function UnifiedManagementSections({
                       exp.isActive && styles.checkboxBoxActiveAmber,
                       cursorPointer,
                     ]}
-                    onPress={() => onToggleExpenseActive(exp.id)}
+                    onPress={() => { void runAction(() => onToggleExpenseActive(exp.id)); }}
                     hitSlop={8}
                     accessibilityLabel={exp.isActive ? "Désactiver le projet" : "Activer le projet"}
                   >
@@ -603,7 +609,7 @@ export function UnifiedManagementSections({
 
                   <Pressable
                     style={[styles.btnDelete, cursorPointer]}
-                    onPress={() => onRemoveExpense(exp.id)}
+                    onPress={() => { void runAction(() => onRemoveExpense(exp.id)); }}
                     hitSlop={8}
                     accessibilityLabel={`Supprimer ${exp.title}`}
                   >
@@ -666,7 +672,7 @@ export function UnifiedManagementSections({
                       inf.isActive && styles.checkboxBoxActiveInflow,
                       cursorPointer,
                     ]}
-                    onPress={() => onToggleInflowActive(inf.id)}
+                    onPress={() => { void runAction(() => onToggleInflowActive(inf.id)); }}
                     hitSlop={8}
                     accessibilityLabel={inf.isActive ? "Désactiver la rentrée" : "Activer la rentrée"}
                   >
@@ -717,7 +723,7 @@ export function UnifiedManagementSections({
 
                   <Pressable
                     style={[styles.btnDelete, cursorPointer]}
-                    onPress={() => onRemoveInflow(inf.id)}
+                    onPress={() => { void runAction(() => onRemoveInflow(inf.id)); }}
                     hitSlop={8}
                     accessibilityLabel={`Supprimer ${inf.title}`}
                   >
@@ -733,7 +739,8 @@ export function UnifiedManagementSections({
   );
 
   return (
-    <View style={styles.rootWrapper}>
+    <View testID="management-sections" style={styles.rootWrapper}>
+      {actionError && <Text testID="management-error" accessibilityRole="alert" style={{ color: colors.danger }}>{actionError}</Text>}
       {/* Structural layout: 2 columns on Desktop, vertically stacked on Mobile */}
       {isDesktop ? (
         <View style={[styles.mainLayout, styles.layoutRow]}>

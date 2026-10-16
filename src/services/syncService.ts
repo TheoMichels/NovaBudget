@@ -1,3 +1,4 @@
+import { remoteSavingsSchema, remoteExpenseSchema, remoteInflowSchema, remoteSettingsSchema, validate } from "../types/validation";
 import { Expense, ExpenseCategory } from "../types/expense";
 import { FutureProject, OneOffInflow } from "../types/projection";
 import { SavingsAccount, SavingsCategory } from "../types/savingsAccount";
@@ -27,10 +28,11 @@ export interface SyncResult {
   error?: string;
 }
 
-function isTableMissingError(error: any): boolean {
+function isTableMissingError(error: unknown): boolean {
   if (!error) return false;
-  const msg = typeof error === "string" ? error : error?.message || "";
-  const code = error?.code || "";
+  const details = typeof error === "object" ? error as { message?: unknown; code?: unknown } : {};
+  const msg = typeof error === "string" ? error : typeof details.message === "string" ? details.message : "";
+  const code = details.code;
   return (
     code === "PGRST205" ||
     code === "42P01" ||
@@ -278,6 +280,13 @@ export async function pullSupabaseToLocal(userId: string): Promise<SyncResult> {
     if (projectsRes.error) throw projectsRes.error;
     if (inflowsRes.error) throw inflowsRes.error;
     if (settingsRes.error) throw settingsRes.error;
+
+    // Valider tout le lot avant la première écriture locale.
+    validate(remoteSavingsSchema.array(), savingsRes.data ?? []);
+    validate(remoteExpenseSchema.array(), expensesRes.data ?? []);
+    validate(remoteExpenseSchema.array(), projectsRes.data ?? []);
+    validate(remoteInflowSchema.array(), inflowsRes.data ?? []);
+    if (settingsRes.data) validate(remoteSettingsSchema, settingsRes.data);
 
     const hasCloudData =
       (savingsRes.data && savingsRes.data.length > 0) ||

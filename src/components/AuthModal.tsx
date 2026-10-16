@@ -1,3 +1,4 @@
+import { credentialsSchema } from "../types/validation";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
@@ -14,7 +15,7 @@ import {
 } from "react-native";
 import { useAuth } from "../hooks/useAuth";
 import { pullSupabaseToLocal, pushLocalToSupabase } from "../services/syncService";
-import { isSupabaseConfigured } from "../services/supabaseClient";
+import { isSupabaseConfigured } from "../config/supabase";
 import { colors, shadows } from "../theme/colors";
 import { cursorPointer } from "../theme/webCursor";
 
@@ -64,6 +65,10 @@ export function AuthModal({ visible, onClose, onAuthSuccess }: AuthModalProps) {
     setFeedbackSuccess(null);
 
     const cleanEmail = email.trim();
+    if (!credentialsSchema.safeParse({ email: cleanEmail, password }).success) {
+      setFeedbackError("Saisissez une adresse email valide et un mot de passe de 6 caractères minimum.");
+      return;
+    }
     if (!cleanEmail || !password) {
       setFeedbackError("Veuillez renseigner tous les champs obligatoires.");
       return;

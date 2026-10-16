@@ -1,3 +1,4 @@
+import { expenseInputSchema, parseFrenchNumber, validate } from "../../types/validation";
 import React, { useState } from "react";
 import {
   Modal,
@@ -27,7 +28,7 @@ interface AddProjectModalProps {
     category: ExpenseCategory;
     isActive: boolean;
     notes?: string;
-  }) => void;
+  }) => void | Promise<unknown>;
 }
 
 export function AddProjectModal({
@@ -42,26 +43,36 @@ export function AddProjectModal({
   const [category, setCategory] = useState<ExpenseCategory>("vehicule");
   const [notes, setNotes] = useState("");
 
-  const handleSubmit = () => {
-    if (!title.trim()) return;
-    const parsedAmount = parseFloat(amount.replace(",", ".")) || 0;
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const handleSubmit = async () => {
+    if (isSubmitting) return;
+    setSubmitError(null);
+    setIsSubmitting(true);
+    try {
+      const parsedAmount = parseFrenchNumber(amount);
+      validate(expenseInputSchema, { title: title.trim(), amount: parsedAmount, targetDate, category, isActive: true });
+      await onSubmit({
+        title: title.trim(),
+        amount: parsedAmount,
+        targetDate: targetDate.trim() || "2027-10",
+        category,
+        isActive: true,
+        notes: notes.trim(),
+      });
 
-    onSubmit({
-      title: title.trim(),
-      amount: parsedAmount,
-      targetDate: targetDate.trim() || "2027-10",
-      category,
-      isActive: true,
-      notes: notes.trim(),
-    });
-
-    setTitle("");
-    setAmount("");
-    setTargetDate("2027-10");
-    setIsCalendarOpen(false);
-    setCategory("vehicule");
-    setNotes("");
-    onClose();
+      setTitle("");
+      setAmount("");
+      setTargetDate("2027-10");
+      setIsCalendarOpen(false);
+      setCategory("vehicule");
+      setNotes("");
+      onClose();
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "Enregistrement impossible. Réessayez.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -89,6 +100,7 @@ export function AddProjectModal({
             </Pressable>
           </View>
 
+          {submitError && <Text testID="form-error" accessibilityRole="alert" style={{ color: colors.danger }}>{submitError}</Text>}
           <ScrollView style={styles.form} showsVerticalScrollIndicator={false}>
             {/* Title */}
             <View style={styles.inputGroup}>
@@ -97,7 +109,7 @@ export function AddProjectModal({
                 style={styles.textInput}
                 placeholder="Ex: Achat Voiture, Apport Immobilier, Mariage..."
                 placeholderTextColor={colors.textMuted}
-                value={title}
+                testID="form-title" value={title}
                 onChangeText={setTitle}
               />
             </View>
@@ -111,7 +123,7 @@ export function AddProjectModal({
                 placeholderTextColor={colors.textMuted}
                 keyboardType="decimal-pad"
                 inputMode="decimal"
-                value={amount}
+                testID="form-amount" value={amount}
                 onChangeText={setAmount}
               />
             </View>
@@ -208,7 +220,7 @@ export function AddProjectModal({
                 style={styles.textInput}
                 placeholder="Ex: Modèle d'occasion, apport crédit..."
                 placeholderTextColor={colors.textMuted}
-                value={notes}
+                testID="form-notes" value={notes}
                 onChangeText={setNotes}
               />
             </View>
@@ -225,7 +237,7 @@ export function AddProjectModal({
 
             <Pressable
               style={[styles.submitBtn, cursorPointer]}
-              onPress={handleSubmit}
+              testID="form-submit" disabled={isSubmitting} onPress={handleSubmit}
             >
               <Text style={styles.submitBtnText}>Enregistrer</Text>
             </Pressable>

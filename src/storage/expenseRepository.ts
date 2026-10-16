@@ -1,4 +1,5 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { expenseSchema, expenseInputSchema, remoteExpenseSchema, validate } from "../types/validation";
+import { readStored, writeStored } from "./validatedStorage";
 import { getCurrentUser } from "../services/authService";
 import { supabase } from "../services/supabaseClient";
 import { ExpenseInsert, ExpenseRow, ExpenseUpdate } from "../types/database";
@@ -22,6 +23,7 @@ function sanitizeCategory(cat: string): ExpenseCategory {
 }
 
 function mapExpenseRowToExpense(row: ExpenseRow): Expense {
+  validate(remoteExpenseSchema, row);
   return {
     id: row.id,
     title: row.title,
@@ -35,28 +37,18 @@ function mapExpenseRowToExpense(row: ExpenseRow): Expense {
 }
 
 async function getLocalExpenses(): Promise<Expense[]> {
-  try {
-    const json = await AsyncStorage.getItem(STORAGE_KEY);
-    if (!json) return [];
-    const parsed = JSON.parse(json);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
+  return readStored(STORAGE_KEY, expenseSchema.array(), []);
 }
 
 async function saveLocalExpenses(expenses: Expense[]): Promise<void> {
-  try {
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(expenses));
-  } catch (error) {
-    console.error("Failed to save expenses to local storage:", error);
-  }
+  await writeStored(STORAGE_KEY, expenseSchema.array(), expenses);
 }
 
-function isTableMissingError(error: any): boolean {
+function isTableMissingError(error: unknown): boolean {
   if (!error) return false;
-  const msg = typeof error === "string" ? error : error?.message || "";
-  const code = error?.code || "";
+  const details = typeof error === "object" ? error as { message?: unknown; code?: unknown } : {};
+  const msg = typeof error === "string" ? error : typeof details.message === "string" ? details.message : "";
+  const code = details.code;
   return (
     code === "PGRST205" ||
     msg.includes("could not find the table") ||
@@ -143,6 +135,7 @@ export async function addExpense(
   data: Omit<Expense, "id" | "updatedAt">,
   userId?: string
 ): Promise<Expense> {
+  validate(expenseInputSchema, data);
   const newId =
     "exp_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6);
 
@@ -215,6 +208,7 @@ export async function updateExpense(
   id: string,
   updates: Partial<Omit<Expense, "id">>
 ): Promise<Expense | null> {
+  validate(expenseInputSchema.partial(), updates);
   // 1. Mise à jour locale
   const currentLocal = await getLocalExpenses();
   const idx = currentLocal.findIndex((e) => e.id === id);

@@ -1,3 +1,4 @@
+import { expenseInputSchema, parseFrenchNumber, validate } from "../types/validation";
 import React, { useState } from "react";
 import {
   Modal,
@@ -26,7 +27,7 @@ interface AddExpenseModalProps {
     targetDate: string;
     category: ExpenseCategory;
     notes?: string;
-  }) => void;
+  }) => void | Promise<unknown>;
 }
 
 export function AddExpenseModal({
@@ -41,25 +42,35 @@ export function AddExpenseModal({
   const [category, setCategory] = useState<ExpenseCategory>("voyage");
   const [notes, setNotes] = useState("");
 
-  const handleSubmit = () => {
-    if (!title.trim()) return;
-    const parsedAmount = parseFloat(amount.replace(",", ".")) || 0;
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const handleSubmit = async () => {
+    if (isSubmitting) return;
+    setSubmitError(null);
+    setIsSubmitting(true);
+    try {
+      const parsedAmount = parseFrenchNumber(amount);
+      validate(expenseInputSchema, { title: title.trim(), amount: parsedAmount, targetDate, category, isActive: true });
+      await onSubmit({
+        title: title.trim(),
+        amount: parsedAmount,
+        targetDate: targetDate.trim() || "2026-12",
+        category,
+        notes: notes.trim(),
+      });
 
-    onSubmit({
-      title: title.trim(),
-      amount: parsedAmount,
-      targetDate: targetDate.trim() || "2026-12",
-      category,
-      notes: notes.trim(),
-    });
-
-    setTitle("");
-    setAmount("");
-    setTargetDate("2026-08");
-    setIsCalendarOpen(true);
-    setCategory("voyage");
-    setNotes("");
-    onClose();
+      setTitle("");
+      setAmount("");
+      setTargetDate("2026-08");
+      setIsCalendarOpen(true);
+      setCategory("voyage");
+      setNotes("");
+      onClose();
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "Enregistrement impossible. Réessayez.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -87,6 +98,7 @@ export function AddExpenseModal({
             </Pressable>
           </View>
 
+          {submitError && <Text testID="form-error" accessibilityRole="alert" style={{ color: colors.danger }}>{submitError}</Text>}
           <ScrollView style={styles.form} showsVerticalScrollIndicator={false}>
             {/* Title */}
             <View style={styles.inputGroup}>
@@ -95,7 +107,7 @@ export function AddExpenseModal({
                 style={styles.textInput}
                 placeholder="Ex: Voyage Italie, Changement chaudière..."
                 placeholderTextColor={colors.textMuted}
-                value={title}
+                testID="form-title" value={title}
                 onChangeText={setTitle}
               />
             </View>
@@ -109,7 +121,7 @@ export function AddExpenseModal({
                 placeholderTextColor={colors.textMuted}
                 keyboardType="decimal-pad"
                 inputMode="decimal"
-                value={amount}
+                testID="form-amount" value={amount}
                 onChangeText={setAmount}
               />
             </View>
@@ -210,7 +222,7 @@ export function AddExpenseModal({
                 style={styles.textInput}
                 placeholder="Ex: Réservation billets train, devis artisan..."
                 placeholderTextColor={colors.textMuted}
-                value={notes}
+                testID="form-notes" value={notes}
                 onChangeText={setNotes}
               />
             </View>
@@ -227,7 +239,7 @@ export function AddExpenseModal({
 
             <Pressable
               style={[styles.submitBtn, cursorPointer]}
-              onPress={handleSubmit}
+              testID="form-submit" disabled={isSubmitting} onPress={handleSubmit}
             >
               <Text style={styles.submitBtnText}>Planifier</Text>
             </Pressable>

@@ -1,3 +1,4 @@
+import { inflowInputSchema, parseFrenchNumber, validate } from "../../types/validation";
 import React, { useState } from "react";
 import {
   Modal,
@@ -25,7 +26,7 @@ interface AddInflowModalProps {
     targetDate: string;
     isActive: boolean;
     notes?: string;
-  }) => void;
+  }) => void | Promise<unknown>;
 }
 
 export function AddInflowModal({
@@ -39,24 +40,34 @@ export function AddInflowModal({
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [notes, setNotes] = useState("");
 
-  const handleSubmit = () => {
-    if (!title.trim()) return;
-    const parsedAmount = parseFloat(amount.replace(",", ".")) || 0;
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const handleSubmit = async () => {
+    if (isSubmitting) return;
+    setSubmitError(null);
+    setIsSubmitting(true);
+    try {
+      const parsedAmount = parseFrenchNumber(amount);
+      validate(inflowInputSchema, { title: title.trim(), amount: parsedAmount, targetDate, isActive: true });
+      await onSubmit({
+        title: title.trim(),
+        amount: parsedAmount,
+        targetDate: targetDate.trim() || "2026-12",
+        isActive: true,
+        notes: notes.trim(),
+      });
 
-    onSubmit({
-      title: title.trim(),
-      amount: parsedAmount,
-      targetDate: targetDate.trim() || "2026-12",
-      isActive: true,
-      notes: notes.trim(),
-    });
-
-    setTitle("");
-    setAmount("");
-    setTargetDate("2026-12");
-    setIsCalendarOpen(false);
-    setNotes("");
-    onClose();
+      setTitle("");
+      setAmount("");
+      setTargetDate("2026-12");
+      setIsCalendarOpen(false);
+      setNotes("");
+      onClose();
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "Enregistrement impossible. Réessayez.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -84,6 +95,7 @@ export function AddInflowModal({
             </Pressable>
           </View>
 
+          {submitError && <Text testID="form-error" accessibilityRole="alert" style={{ color: colors.danger }}>{submitError}</Text>}
           <ScrollView style={styles.form} showsVerticalScrollIndicator={false}>
             {/* Title */}
             <View style={styles.inputGroup}>
@@ -92,7 +104,7 @@ export function AddInflowModal({
                 style={styles.textInput}
                 placeholder="Ex: Prime de fin d'année, Vente moto, Remboursement..."
                 placeholderTextColor={colors.textMuted}
-                value={title}
+                testID="form-title" value={title}
                 onChangeText={setTitle}
               />
             </View>
@@ -106,7 +118,7 @@ export function AddInflowModal({
                 placeholderTextColor={colors.textMuted}
                 keyboardType="decimal-pad"
                 inputMode="decimal"
-                value={amount}
+                testID="form-amount" value={amount}
                 onChangeText={setAmount}
               />
             </View>
@@ -168,7 +180,7 @@ export function AddInflowModal({
                 style={styles.textInput}
                 placeholder="Ex: Salaire de décembre, virement sécurisé..."
                 placeholderTextColor={colors.textMuted}
-                value={notes}
+                testID="form-notes" value={notes}
                 onChangeText={setNotes}
               />
             </View>
@@ -185,7 +197,7 @@ export function AddInflowModal({
 
             <Pressable
               style={[styles.submitBtn, cursorPointer]}
-              onPress={handleSubmit}
+              testID="form-submit" disabled={isSubmitting} onPress={handleSubmit}
             >
               <Text style={styles.submitBtnText}>Enregistrer</Text>
             </Pressable>

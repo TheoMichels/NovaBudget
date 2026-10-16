@@ -1,4 +1,5 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { savingsSchema, savingsInputSchema, remoteSavingsSchema, validate } from "../types/validation";
+import { readStored, writeStored } from "./validatedStorage";
 import { getCurrentUser } from "../services/authService";
 import { supabase } from "../services/supabaseClient";
 import {
@@ -23,6 +24,7 @@ function sanitizeCategory(cat: string): SavingsCategory {
 }
 
 function mapSavingsRowToAccount(row: SavingsAccountRow): SavingsAccount {
+  validate(remoteSavingsSchema, row);
   return {
     id: row.id,
     name: row.name,
@@ -36,28 +38,18 @@ function mapSavingsRowToAccount(row: SavingsAccountRow): SavingsAccount {
 }
 
 async function getLocalSavings(): Promise<SavingsAccount[]> {
-  try {
-    const json = await AsyncStorage.getItem(STORAGE_KEY);
-    if (!json) return [];
-    const parsed = JSON.parse(json);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
+  return readStored(STORAGE_KEY, savingsSchema.array(), []);
 }
 
 async function saveLocalSavings(accounts: SavingsAccount[]): Promise<void> {
-  try {
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(accounts));
-  } catch (error) {
-    console.error("Failed to save savings to local storage:", error);
-  }
+  await writeStored(STORAGE_KEY, savingsSchema.array(), accounts);
 }
 
-function isTableMissingError(error: any): boolean {
+function isTableMissingError(error: unknown): boolean {
   if (!error) return false;
-  const msg = typeof error === "string" ? error : error?.message || "";
-  const code = error?.code || "";
+  const details = typeof error === "object" ? error as { message?: unknown; code?: unknown } : {};
+  const msg = typeof error === "string" ? error : typeof details.message === "string" ? details.message : "";
+  const code = details.code;
   return (
     code === "PGRST205" ||
     msg.includes("could not find the table") ||
@@ -156,6 +148,7 @@ export async function addSavings(
   data: Omit<SavingsAccount, "id" | "updatedAt">,
   userId?: string
 ): Promise<SavingsAccount> {
+  validate(savingsInputSchema, data);
   const newId =
     "sav_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6);
 
@@ -234,6 +227,7 @@ export async function updateSavings(
   id: string,
   updates: Partial<Omit<SavingsAccount, "id">>
 ): Promise<SavingsAccount | null> {
+  validate(savingsInputSchema.partial(), updates);
   // 1. Mise à jour locale
   const currentLocal = await getLocalSavings();
   const idx = currentLocal.findIndex((a) => a.id === id);

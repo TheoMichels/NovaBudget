@@ -1,3 +1,4 @@
+import { credentialsSchema } from "../types/validation";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
@@ -16,7 +17,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { colors, gradient, shadows } from "../theme/colors";
 import { cursorPointer } from "../theme/webCursor";
 import { useAuth } from "../hooks/useAuth";
-import { isSupabaseConfigured } from "../services/supabaseClient";
+import { isSupabaseConfigured } from "../config/supabase";
 
 export function AuthScreen(): React.JSX.Element {
   const { width } = useWindowDimensions();
@@ -50,6 +51,10 @@ export function AuthScreen(): React.JSX.Element {
     }
 
     const cleanEmail = email.trim();
+    if (!credentialsSchema.safeParse({ email: cleanEmail, password }).success) {
+      setFeedbackError("Saisissez une adresse email valide et un mot de passe de 6 caractères minimum.");
+      return;
+    }
     if (!cleanEmail || !password) {
       setFeedbackError("Veuillez renseigner tous les champs obligatoires.");
       return;

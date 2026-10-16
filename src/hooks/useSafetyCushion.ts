@@ -13,19 +13,23 @@ export function useSafetyCushion(
   const [safetyCushionTarget, setSafetyCushionTarget] =
     useState<number>(defaultVal);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [reloadIndex, setReloadIndex] = useState(0);
 
   useEffect(() => {
     let isMounted = true;
 
     const load = (userId?: string) => {
+      setLoading(true);
+      setError(null);
       getSafetyCushion(userId)
         .then((val) => {
           if (isMounted) {
             setSafetyCushionTarget(val);
           }
         })
-        .catch(() => {
-          if (isMounted) setSafetyCushionTarget(defaultVal);
+        .catch((e: unknown) => {
+          if (isMounted) setError(e instanceof Error ? e.message : "Chargement du seuil impossible.");
         })
         .finally(() => {
           if (isMounted) {
@@ -72,15 +76,16 @@ export function useSafetyCushion(
       isMounted = false;
       subscription.unsubscribe();
     };
-  }, [defaultVal]);
+  }, [defaultVal, reloadIndex]);
 
   const updateSafetyCushionTarget = useCallback(
     async (newTarget: number) => {
-      setSafetyCushionTarget(newTarget);
       try {
         await saveSafetyCushion(newTarget);
+        setSafetyCushionTarget(newTarget);
+        setError(null);
       } catch (e) {
-        console.error("Failed to persist safety cushion target", e);
+        setError(e instanceof Error ? e.message : "Enregistrement du seuil impossible.");
       }
     },
     []
@@ -90,5 +95,7 @@ export function useSafetyCushion(
     safetyCushionTarget,
     updateSafetyCushionTarget,
     loading,
+    error,
+    reload: () => setReloadIndex(value => value + 1),
   };
 }
