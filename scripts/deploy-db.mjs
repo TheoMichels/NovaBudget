@@ -4,6 +4,10 @@ import path from 'node:path';
 
 const rootDir = fileURLToPath(new URL('../', import.meta.url));
 
+if (typeof process.loadEnvFile === 'function' && !process.env.DIRECT_URL && !process.env.POSTGRES_URL_NON_POOLING) {
+  try { process.loadEnvFile(path.join(rootDir, '.env')); } catch {}
+}
+
 // Une seule source SQL : les migrations Prisma versionnées. Pas de connexion pg parallèle.
 export function deployDatabase(env = process.env, run = spawnSync) {
   const directUrl = env.DIRECT_URL || env.POSTGRES_URL_NON_POOLING;
