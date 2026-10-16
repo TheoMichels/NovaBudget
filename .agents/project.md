@@ -7,7 +7,7 @@
 
 ## Stack
 - Expo 57 + RN Web, React 19, TS strict ; Zod 3.25.76 valide formulaires, stockage et réponses métier. AsyncStorage via repositories + synchro Supabase ; auth `src/services/authService.ts`.
-- Écarts assumés temporaires : tables cloud dans `public`, Prisma et `supabase/migrations/` coexistent ; cible Prisma seule source dans `novabudget`, préparation L4 avant toute migration distante.
+- Prisma = source cible `novabudget`/`auth`, migrations baseline public puis transfert transactionnel ; PGlite 0.5.10 (dev) vérifie le SQL. Écarts temporaires : cloud/client encore `public` ; SQL Supabase historique archivé jusqu’à L6, jamais exécuté par le runner.
 - Stockage selon l'environnement : en local (origine loopback, export hors Vercel) stockage navigateur sans auth ni Supabase ; sur Vercel, auth + synchro. Ne pas activer le cloud d'après la présence des clés ou `NODE_ENV`. Détail : `docs/LOCAL_STORAGE.md`.
 
 ## Commandes
@@ -19,7 +19,7 @@
 | Tests (unit + intégration) / E2E | `npm test` / `npm run test:e2e` |
 | Build | `npm run build` (`expo export -p web`) |
 | Port de preview QA | 4173 (build web local) |
-| Déploiement base | `npm run db:deploy` — via `release-deploy` uniquement (`docs/SUPABASE_DEPLOYMENT.md`) |
+| Déploiement base | `npm run db:deploy` — Prisma migrate deploy seul, connexion directe ; via `release-deploy` après baseline vérifiée (guide déploiement) |
 
 ## Modèle de données
 | Entité | Type | Repository |

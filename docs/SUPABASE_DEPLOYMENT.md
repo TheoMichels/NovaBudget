@@ -1,122 +1,42 @@
-# 🚀 Guide de Déploiement Cloud & Base de Données — NovaBudget
+# Base Supabase — préparation locale et bascule L6
 
-Ce guide détaille l'initialisation de la base de données PostgreSQL sur **Supabase**, la configuration des variables d'environnement et le déploiement de l'application Web sur **Vercel**.
+Prisma est la seule source cible : `prisma/schema.prisma` (`novabudget`/`auth`) et `prisma/migrations/`.
+Le client cloud utilise encore `public` ; aucune bascule distante n’a été exécutée.
+`supabase/migrations/20261013000000_init_novabudget_schema.sql` est une **archive historique immuable**, conservée jusqu’à L6 ; aucun runner ne l’exécute.
 
----
+## Chaîne versionnée
+| Migration | Effet |
+|---|---|
+| `20261016000100_public_baseline` | Reproduit les cinq tables public, contraintes, index, RLS et triggers historiques. |
+| `20261016000200_move_to_novabudget` | Transaction ALTER TABLE SET SCHEMA sans copie ni recréation ; conserve données/FK/index, grants explicites, policies authenticated, triggers durcis. |
 
-## 1. Initialisation de la Base de Données Supabase
+Les FK `auth.users` et le CHECK des catégories sont dans le SQL versionné (non modélisés dans Prisma).
+La fonction historique public reste présente pour préserver ses éventuelles autres dépendances, avec search_path fixé à pg_catalog.
+La nouvelle fonction est SECURITY INVOKER au search_path pg_catalog ; authenticated/service_role ont le CRUD, anon aucun droit sur les tables.
 
-### Étape 1.1 : Création du projet Supabase
-1. Rendez-vous sur la console Supabase : [https://supabase.com/dashboard](https://supabase.com/dashboard)
-2. Cliquez sur **New project**.
-3. Choisissez une organisation, un nom de projet (ex. `NovaBudget`), un mot de passe sécurisé pour la base de données et une région proche de vos utilisateurs (ex. `eu-west-3` Paris ou `eu-central-1` Francfort).
-4. Patientez pendant le provisionnement de l'instance PostgreSQL.
+## Installation vide
+Le socle Supabase doit fournir `auth.users`, `auth.uid()` et les rôles anon/authenticated/service_role ; les migrations ne créent aucun compte.
+Fournir `DIRECT_URL` ou `POSTGRES_URL_NON_POOLING` dans l’environnement du processus, avec TLS vérifié. Le runner utilise cette connexion directe pour les deux URL Prisma ; aucune URL poolée de repli.
+Après confirmation utilisateur via `release-deploy`, `npm run db:deploy` exécute **uniquement prisma migrate deploy**, baseline puis transfert.
+Prisma charge son `.env` habituel ; la connexion directe du runner doit toutefois être fournie dans l’environnement. Les secrets ne sont pas journalisés par le wrapper.
+La génération du client reste `npm install`/`npx prisma generate`, indépendante de la migration.
 
-### Étape 1.2 : Exécution de la Migration SQL Automatisée (Calqué sur veille-techno)
-Grâce au script de migration automatisé, vous n'avez plus besoin de copier-coller manuellement le SQL dans le dashboard :
-1. Renseignez `DATABASE_URL` et `DIRECT_URL` dans votre fichier `.env`.
-2. Lancez simplement la commande :
-   ```bash
-   npm run db:deploy
-   ```
-3. Le script se connecte directement à votre instance Supabase PostgreSQL, applique les tables, index, triggers et politiques RLS, puis génère le client Prisma.
-4. Pour synchroniser le schéma Prisma ultérieurement :
-   ```bash
-   npm run db:push
-   ```
+## Base existante sans historique Prisma
+**Ne jamais lancer db:deploy avant adoption de la baseline.** Le DDL de baseline refuse une table déjà existante et annule sa transaction ; il ne masque pas une adoption oubliée. Audit du 16/10 : 11 lignes public, aucune table `_prisma_migrations`.
+1. Après autorisation, sauvegarder données + schéma et vérifier une restauration jetable ; prévoir une fenêtre de maintenance.
+2. Comparer la base réelle à la baseline : colonnes/types/defaults, PK/FK/CHECK, index, RLS/policies, triggers ; inventorier grants et dépendances. Tout écart bloque l’adoption jusqu’à résolution/revue. PGlite prouve l’équivalence avec le SQL historique, pas l’absence de dérive distante.
+3. Après comparaison conforme et confirmation utilisateur, marquer manuellement la baseline appliquée : `prisma migrate resolve --applied 20261016000100_public_baseline`, avec connexion directe et même schéma de suivi Prisma qu’au déploiement. **Commande jamais exécutée pendant ce lot.**
+4. Contrôler `prisma migrate status` : baseline adoptée, seul transfert en attente. Le paramètre `schema` de l’URL détermine l’emplacement du suivi `_prisma_migrations` : le garder identique entre resolve/deploy.
+5. Suivre `.agents/handoff/migrate-prisma-stack/l6-plan.md` pour la coordination SQL/API/client et le retour arrière.
 
----
+## Commandes et déploiement Web
+Ne pas utiliser `prisma db push`, `migrate reset`, `migrate dev` sur la base partagée ni rejouer le SQL Supabase historique. Le script `db:push` a été supprimé.
+Vercel : build `npm run build`, sortie `dist`, installation `npm install`. Une installation ne migre pas la base.
+Variables publiques client : `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY` ; aucun secret serveur sous ce préfixe. L’intégration peut fournir `POSTGRES_URL_NON_POOLING` pour migrer.
+À L6 seulement : coordonner exposition API de novabudget (Exposed schemas) et changement du client cloud ; aucun grant anon sur les tables.
+Ce document n’autorise aucun push, déploiement, changement d’exposition API ni application distante.
 
-## 2. Structure du Schéma Relationnel & Sécurité
-
-### 📊 Tables créées
-| Table | Description | Clé Primaire | Clé Étrangère |
-| :--- | :--- | :--- | :--- |
-| `savings_accounts` | Comptes & livrets d'épargne (sécurité, projets, investissements) | `id (TEXT)` | `user_id -> auth.users(id)` |
-| `expenses` | Dépenses prévues ou planifiées | `id (TEXT)` | `user_id -> auth.users(id)` |
-| `future_projects` | Projets d'épargne moyen/long terme pour la simulation | `id (TEXT)` | `user_id -> auth.users(id)` |
-| `inflows` | Rentrées d'argent ponctuelles (primes, remboursements) | `id (TEXT)` | `user_id -> auth.users(id)` |
-| `user_settings` | Paramètres généraux (épargne mensuelle par défaut, matelas de sécurité) | `user_id (UUID)` | `user_id -> auth.users(id)` |
-
-### 🔒 Sécurité Row Level Security (RLS)
-- **RLS activée** sur 100% des tables.
-- Isolation absolue par utilisateur : `auth.uid() = user_id`.
-- 4 politiques strictes par table :
-  - `SELECT` : Seul le propriétaire peut lire ses données.
-  - `INSERT` : Seul le propriétaire authentifié peut insérer ses enregistrements (`WITH CHECK (auth.uid() = user_id)`).
-  - `UPDATE` : Seul le propriétaire peut modifier ses enregistrements (`USING` et `WITH CHECK`).
-  - `DELETE` : Seul le propriétaire peut supprimer ses enregistrements.
-
-### ⚡ Performance & Triggers
-- **Index B-Tree** créés sur toutes les clés `user_id`, couples `(user_id, category)`, `(user_id, target_date)` et `(user_id, is_active)` pour des requêtes sub-milliseconde.
-- **Triggers automatiques** : Fonction `update_updated_at_column()` branchée sur chaque table pour horodater chaque mise à jour (`updated_at = now()`).
-
----
-
-## 3. Configuration des Variables d'Environnement
-
-### 🔑 Récupération des clés API Supabase
-1. Dans le tableau de bord Supabase, rendez-vous dans **Project Settings** (icône engrenage) > **API**.
-2. Récupérez :
-   - **Project URL** (ex. `https://xyzcompany.supabase.co`)
-   - **Project API Keys** : La clé publique `anon` / `public`.
-
-> [!WARNING]
-> N'utilisez **JAMAIS** la clé `service_role` côté client Expo Web/Mobile. Seule la clé `anon` doit être exposée via `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
-
-### 💻 Configuration en Local
-1. Dupliquez le fichier exemple à la racine du projet :
-   ```bash
-   cp .env.example .env
-   ```
-2. Remplissez vos vraies valeurs dans `.env` :
-   ```env
-   EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-   EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-   ```
-3. Le fichier `.env` est déjà ignoré par Git pour prévenir toute fuite de secret.
-
----
-
-## 4. Déploiement de l'Application sur Vercel
-
-NovaBudget est pré-configuré pour un déploiement fluide sur Vercel grâce au fichier [`vercel.json`](file:///Users/theomichels/App/NovaBudget/vercel.json).
-
-### Étape 4.1 : Importation du Projet sur Vercel
-1. Rendez-vous sur [https://vercel.com/new](https://vercel.com/new).
-2. Liez votre dépôt Git (GitHub, GitLab ou Bitbucket).
-3. Lors de la configuration du projet :
-   - **Framework Preset** : `Other` (le build est piloté par `expo export -p web`).
-   - **Build Command** : `npm run build`
-   - **Output Directory** : `dist`
-   - **Install Command** : `npm install`
-
-### Étape 4.2 : Ajout des Variables d'Environnement sur Vercel
-Dans la section **Environment Variables** du projet Vercel, ajoutez :
-- `EXPO_PUBLIC_SUPABASE_URL` : URL de votre projet Supabase
-- `EXPO_PUBLIC_SUPABASE_ANON_KEY` : Clé API publique anon Supabase
-
-Sélectionnez les environnements **Production**, **Preview** et **Development**.
-
-### Étape 4.3 : Lancement du Déploiement
-1. Cliquez sur **Deploy**.
-2. Vercel compile l'application Expo Web (`dist/`) et déploie le bundle avec :
-   - Redirection SPA (`/(.*)` -> `/index.html`) pour le routing client.
-   - Cache immutable HTTP (`max-age=31536000, immutable`) sur les assets compilés JS/CSS/médias.
-
----
-
-## 5. Validation et Tests
-
-1. **Vérification TypeScript locale** :
-   ```bash
-   npx tsc --noEmit
-   ```
-2. **Build Web local** :
-   ```bash
-   npm run build
-   ```
-3. **Contrôle Supabase** :
-   - Connectez-vous avec un utilisateur dans l'application.
-   - Vérifiez dans **Table Editor** de Supabase que les enregistrements sont créés avec le `user_id` correspondant au compte connecté.
-   - Testez qu'un autre utilisateur ne peut accéder qu'à ses propres données grâce aux politiques RLS.
+## Preuves locales reproductibles
+`npm test` exécute le SQL exact sur PGlite 0.5.10 avec auth/rôles factices : OID/ids/lignes, baseline/historique, grants/FK cascade, CRUD RLS A/B, triggers, rollback collision.
+`npx prisma validate` et `npx prisma generate` n’appliquent aucune migration. Le harness strict couvre mode local et cloud simulé, client public inchangé.
+PGlite exécute PostgreSQL embarqué ; les contrôles Supabase API, TLS, paramètres et advisors restent à faire à L6.
