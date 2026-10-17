@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { z } from "zod";
 import { remoteSavingsSchema, remoteExpenseSchema, remoteInflowSchema, remoteSettingsSchema, moneySchema, validate } from "../types/validation";
 import type { SavingsAccount } from "../types/savingsAccount";
@@ -97,13 +98,20 @@ export async function deleteCloudItem(name: CollectionName, id: string, localVer
     });
   } catch { throw syncError(); }
 }
+let lastPullTimestamp = 0;
+let lastPullUserId: string | null = null;
+const SYNC_FRESHNESS_TTL_MS = 10000;
+
 export async function readCloudCollection<K extends CollectionName>(name: K, userId?: string): Promise<CollectionItems[K][]> {
   const cache = collectionCaches[name];
   const version = cache.version();
   if (!supabase) return cache.read();
   try {
+    const uid = await owner(userId);
+    if (lastPullUserId === uid && Date.now() - lastPullTimestamp < SYNC_FRESHNESS_TTL_MS) {
+      return cache.read();
+    }
     await queueCloud(async () => {
-      const uid = await owner(userId);
       const { data, error } = await supabase!.from(name as CollectionName).select("*").eq("user_id", uid).order("created_at", { ascending: true });
       if (error) throw syncError();
       const items = decode[name](data, uid);
@@ -126,8 +134,11 @@ export async function readCloudSettings(userId?: string): Promise<void> {
   if (!supabase) return;
   const versions = [cushionCache.version(), monthlyCache.version()];
   try {
+    const uid = await owner(userId);
+    if (lastPullUserId === uid && Date.now() - lastPullTimestamp < SYNC_FRESHNESS_TTL_MS) {
+      return;
+    }
     await queueCloud(async () => {
-      const uid = await owner(userId);
       const { data, error } = await supabase!.from("user_settings").select("*").eq("user_id", uid).maybeSingle();
       if (error) throw syncError();
       const settings = decodeSettings(data, uid);
@@ -201,7 +212,94 @@ export async function pullSupabaseToLocal(userId: string): Promise<SyncResult> {
         cushionCache.replaceRemote(settings.safety_cushion, settingsVersions[0], true), monthlyCache.replaceRemote({ monthlyTotal: settings.monthly_savings }, settingsVersions[1], true),
       ]);
       if (replaced.some(value => !value)) throw new Error("Des modifications locales récentes ont été conservées. Relancez la synchronisation.");
+      lastPullTimestamp = Date.now();
+      lastPullUserId = uid;
     });
     return { success: true, message: "Données Supabase chargées dans le cache local." };
   } catch { return { success: false, error: syncError().message }; }
 }
+
+export async function pullFromCloud(userId: string): Promise<SyncResult> {
+  return pullSupabaseToLocal(userId);
+}
+
+export async function clearLocalCache(): Promise<void> {
+  const toRemove = new Set<string>();
+  const knownPrefixes = [
+    "@novabudget_savings",
+    "@novabudget_expenses",
+    "@novabudget_future_projects",
+    "@novabudget_inflows",
+    "@novabudget_monthly_contribution",
+    "@novabudget_safety_cushion",
+  ];
+  const versions = ["_v3", "_v2", "_v1", ""];
+  for (const prefix of knownPrefixes) {
+    for (const v of versions) {
+      toRemove.add(`${prefix}${v}`);
+    }
+  }
+
+  const asyncStorageAny = AsyncStorage as unknown as {
+    getAllKeys?: () => Promise<readonly string[]>;
+    multiRemove?: (keys: string[]) => Promise<void>;
+    removeMany?: (keys: string[]) => Promise<void>;
+    removeItem?: (key: string) => Promise<void>;
+  };
+
+  if (typeof asyncStorageAny.getAllKeys === "function") {
+    try {
+      const allKeys = await asyncStorageAny.getAllKeys();
+      for (const k of allKeys) {
+        if (k.startsWith("@novabudget")) {
+          toRemove.add(k);
+        }
+      }
+    } catch {
+      // Ignorer l'erreur d'inspection des clés
+    }
+  }
+
+  const keysArray = Array.from(toRemove);
+  if (typeof asyncStorageAny.multiRemove === "function") {
+    try {
+      await asyncStorageAny.multiRemove(keysArray);
+    } catch {
+      await Promise.all(keysArray.map((k) => asyncStorageAny.removeItem?.(k).catch(() => {})));
+    }
+  } else if (typeof asyncStorageAny.removeMany === "function") {
+    try {
+      await asyncStorageAny.removeMany(keysArray);
+    } catch {
+      await Promise.all(keysArray.map((k) => asyncStorageAny.removeItem?.(k).catch(() => {})));
+    }
+  } else if (typeof asyncStorageAny.removeItem === "function") {
+    await Promise.all(keysArray.map((k) => asyncStorageAny.removeItem?.(k).catch(() => {})));
+  }
+
+  if (typeof window !== "undefined" && window.localStorage) {
+    try {
+      const webKeysToRemove = new Set<string>();
+      for (let i = 0; i < window.localStorage.length; i++) {
+        const key = window.localStorage.key(i);
+        if (key && key.startsWith("@novabudget")) {
+          webKeysToRemove.add(key);
+        }
+      }
+      for (const key of keysArray) {
+        if (key.startsWith("@novabudget")) {
+          webKeysToRemove.add(key);
+        }
+      }
+      for (const key of webKeysToRemove) {
+        window.localStorage.removeItem(key);
+      }
+    } catch {
+      // Erreurs localStorage ignorées (quota, navigation privée)
+    }
+  }
+
+  lastPullTimestamp = 0;
+  lastPullUserId = null;
+}
+

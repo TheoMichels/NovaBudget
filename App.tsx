@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   View,
@@ -16,6 +16,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { colors, radius, spacing, gradient } from "./src/theme/colors";
 import { isLocalMode } from "./src/config/storageMode";
 import { useAuth } from "./src/hooks/useAuth";
+import { pullFromCloud } from "./src/services/syncService";
 import { AuthScreen } from "./src/components/AuthScreen";
 import { useSavings } from "./src/hooks/useSavings";
 import { useExpenses } from "./src/hooks/useExpenses";
@@ -267,24 +268,45 @@ function AuthenticatedDashboard(): React.JSX.Element {
   );
 }
 
+function LoadingScreen(): React.JSX.Element {
+  return (
+    <LinearGradient
+      colors={gradient.colors}
+      locations={gradient.locations}
+      start={gradient.start}
+      end={gradient.end}
+      style={styles.loadingContainer}
+    >
+      <StatusBar style="dark" />
+      <ActivityIndicator size="large" color="#0D9488" />
+    </LinearGradient>
+  );
+}
+
 export default function App(): React.JSX.Element {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
+  const [isPulling, setIsPulling] = useState(false);
+  const pulledFor = useRef<string | null>(null);
 
-  if (!isLocalMode && isLoading) {
-    return (
-      <LinearGradient
-        colors={gradient.colors}
-        locations={gradient.locations}
-        start={gradient.start}
-        end={gradient.end}
-        style={styles.loadingContainer}
-      >
-        <StatusBar style="dark" />
-        <ActivityIndicator size="large" color="#0D9488" />
-      </LinearGradient>
-    );
-  }
+  useEffect(() => {
+    if (isLocalMode || !user) {
+      pulledFor.current = null;
+      setIsPulling(false);
+      return;
+    }
+    if (pulledFor.current === user.id) return; // un seul pull par compte
+    pulledFor.current = user.id;
+    let cancelled = false;
+    setIsPulling(true);
+    pullFromCloud(user.id).finally(() => {
+      if (!cancelled) setIsPulling(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
+  if (!isLocalMode && (isLoading || isPulling)) return <LoadingScreen />;
   if (!isLocalMode && !isAuthenticated) {
     return (
       <>
@@ -294,7 +316,7 @@ export default function App(): React.JSX.Element {
     );
   }
 
-  return <AuthenticatedDashboard />;
+  return <AuthenticatedDashboard key={user?.id ?? "local"} />;
 }
 
 const styles = StyleSheet.create({

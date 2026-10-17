@@ -38,8 +38,15 @@ function setup({ local=false, initialMemory }={}) {
       })().then(resolve,reject);},
     };return query;
   }};
+  const asyncStorageMock = {
+    getItem: async (key) => memory.get(key) ?? null,
+    setItem: async (key, value) => { memory.set(key, value); },
+    removeItem: async (key) => { memory.delete(key); },
+    multiRemove: async (keys) => { for (const key of keys) memory.delete(key); },
+    getAllKeys: async () => Array.from(memory.keys()),
+  };
   const app=loadTypeScript('tests/helpers/cloud-entry.ts',{
-    '@react-native-async-storage/async-storage':{getItem:async key=>memory.get(key)??null,setItem:async(key,value)=>{memory.set(key,value);}},
+    '@react-native-async-storage/async-storage': asyncStorageMock,
     './supabaseClient':{supabase:local?null:client},
     '../services/supabaseClient':{supabase:local?null:client},
   });
@@ -206,3 +213,48 @@ for(const operation of ['update','delete'])test(`AC-S03 failed ${operation} on A
   if(operation==='update')assert.equal(app.remote.savings_accounts.find(item=>item.id===savings.id).amount,200);
   else assert.equal(app.remote.savings_accounts.some(item=>item.id===savings.id),true);
 });
+
+test('AC-S05 clearLocalCache deletes all @novabudget_* keys including legacy versions from storage', async () => {
+  const seed = new Map([
+    ['@novabudget_savings_v3', JSON.stringify([savings])],
+    ['@novabudget_savings_v2', 'legacy-savings-v2'],
+    ['@novabudget_savings_v1', 'legacy-savings-v1'],
+    ['@novabudget_expenses_v3', JSON.stringify([expense])],
+    ['@novabudget_expenses_v1', 'legacy-expenses-v1'],
+    ['@novabudget_future_projects_v3', JSON.stringify([expense])],
+    ['@novabudget_inflows_v3', JSON.stringify([expense])],
+    ['@novabudget_monthly_contribution_v3', '{"monthlyTotal":1000}'],
+    ['@novabudget_monthly_contribution_v1', '{"monthlyTotal":500}'],
+    ['@novabudget_safety_cushion_v3', '20000'],
+    ['@novabudget_custom_key', 'custom-value'],
+    ['other_app_key', 'keep-me'],
+  ]);
+  const app = setup({ initialMemory: seed });
+  await app.sync.clearLocalCache();
+  for (const [key] of seed) {
+    if (key.startsWith('@novabudget')) {
+      assert.equal(app.memory.has(key), false, `Key ${key} should have been cleared`);
+    } else {
+      assert.equal(app.memory.get(key), 'keep-me');
+    }
+  }
+});
+
+test('AC-S05 pullFromCloud loads data and readCloudCollection avoids immediate double fetch', async () => {
+  const app = setup();
+  app.remote.savings_accounts = [{ ...savings, user_id: userId, created_at: savings.updatedAt, updated_at: savings.updatedAt }];
+  app.remote.user_settings = [{ user_id: userId, safety_cushion: 15000, monthly_savings: 750 }];
+  const pullResult = await app.sync.pullFromCloud(userId);
+  assert.equal(pullResult.success, true);
+  const selectsAfterPull = app.calls.filter(c => c.action === 'select').length;
+  assert.equal(selectsAfterPull, 5); // 4 collections + user_settings
+  // Calling getSavings and getSafetyCushion right after should use fresh cache without new select calls
+  const accounts = await app.savings.getSavings(userId);
+  assert.equal(accounts.length, 1);
+  assert.equal(accounts[0].id, savings.id);
+  const cushion = await app.settings.getSafetyCushion(userId);
+  assert.equal(cushion, 15000);
+  const selectsAfterGet = app.calls.filter(c => c.action === 'select').length;
+  assert.equal(selectsAfterGet, selectsAfterPull, 'readCloudCollection should not re-query after pullFromCloud');
+});
+
