@@ -5,7 +5,8 @@ import { PGlite } from '@electric-sql/pglite';
 import { deployDatabase } from '../scripts/deploy-db.mjs';
 
 const baseline = readFileSync('prisma/migrations/20261016000100_public_baseline/migration.sql', 'utf8');
-const transfer = readFileSync('prisma/migrations/20261016000200_move_to_novabudget/migration.sql', 'utf8');
+const transferNovabudget = readFileSync('prisma/migrations/20261016000200_move_to_novabudget/migration.sql', 'utf8');
+const transferNova = readFileSync('prisma/migrations/20261018000100_move_to_nova/migration.sql', 'utf8');
 const tables = ['savings_accounts', 'expenses', 'future_projects', 'inflows', 'user_settings'];
 const userA = '00000000-0000-4000-8000-000000000001';
 const userB = '00000000-0000-4000-8000-000000000002';
@@ -60,37 +61,42 @@ test('AC-P01/P03 exact migrations preserve data, enforce CRUD ownership, grants,
     }
     const before = await snapshot(db, 'public');
     const oids = (await db.query("SELECT oid FROM pg_class WHERE relnamespace = 'public'::regnamespace AND relkind='r' ORDER BY relname")).rows;
-    await db.exec(transfer);
+    await db.exec(transferNovabudget);
     assert.deepEqual(await snapshot(db, 'novabudget'), before);
     assert.deepEqual((await db.query("SELECT oid FROM pg_class WHERE relnamespace = 'novabudget'::regnamespace AND relkind='r' ORDER BY relname")).rows, oids);
+
+    await db.exec(transferNova);
+    assert.deepEqual(await snapshot(db, 'nova'), before);
+    assert.deepEqual((await db.query("SELECT oid FROM pg_class WHERE relnamespace = 'nova'::regnamespace AND relkind='r' ORDER BY relname")).rows, oids);
+
     for (const table of tables) {
-      const policies = (await db.query('SELECT cmd,roles,qual,with_check FROM pg_policies WHERE schemaname=$1 AND tablename=$2 ORDER BY cmd', ['novabudget',table])).rows;
+      const policies = (await db.query('SELECT cmd,roles,qual,with_check FROM pg_policies WHERE schemaname=$1 AND tablename=$2 ORDER BY cmd', ['nova',table])).rows;
       assert.deepEqual(policies.map(p=>p.cmd), ['DELETE','INSERT','SELECT','UPDATE']);
       assert.ok(policies.every(p=>p.roles.length === 1 && p.roles[0] === 'authenticated'));
-      assert.equal((await db.query(`SELECT relrowsecurity FROM pg_class WHERE oid='novabudget.${table}'::regclass`)).rows[0].relrowsecurity,true);
+      assert.equal((await db.query(`SELECT relrowsecurity FROM pg_class WHERE oid='nova.${table}'::regclass`)).rows[0].relrowsecurity,true);
       for (const role of ['authenticated','service_role']) for (const privilege of ['SELECT','INSERT','UPDATE','DELETE']) {
-        assert.equal((await db.query('SELECT has_table_privilege($1,$2,$3) AS allowed',[role,`novabudget.${table}`,privilege])).rows[0].allowed,true);
+        assert.equal((await db.query('SELECT has_table_privilege($1,$2,$3) AS allowed',[role,`nova.${table}`,privilege])).rows[0].allowed,true);
       }
-      assert.equal((await db.query('SELECT has_table_privilege($1,$2,$3) AS allowed',['anon',`novabudget.${table}`,'SELECT'])).rows[0].allowed,false);
-      await assert.rejects(db.exec(`INSERT INTO novabudget.${table} ${row(table,'missing',missingUser)}`), /foreign key/);
+      assert.equal((await db.query('SELECT has_table_privilege($1,$2,$3) AS allowed',['anon',`nova.${table}`,'SELECT'])).rows[0].allowed,false);
+      await assert.rejects(db.exec(`INSERT INTO nova.${table} ${row(table,'missing',missingUser)}`), /foreign key/);
       await db.exec(`SET ROLE authenticated; SET request.jwt.claim.sub='${userA}';`);
-      assert.deepEqual((await db.query(`SELECT user_id FROM novabudget.${table}`)).rows,[{ user_id: userA }]);
-      await assert.rejects(db.exec(`INSERT INTO novabudget.${table} ${row(table,'foreign',userB)}`), /row-level security/);
-      assert.equal((await db.query(`UPDATE novabudget.${table} SET updated_at='2000-01-01' WHERE user_id='${userB}' RETURNING *`)).rows.length,0);
-      await assert.rejects(db.exec(`UPDATE novabudget.${table} SET user_id='${userB}' WHERE user_id='${userA}'`), /row-level security/);
-      const updated = (await db.query(`UPDATE novabudget.${table} SET updated_at='2000-01-01' WHERE user_id='${userA}' RETURNING updated_at`)).rows[0];
+      assert.deepEqual((await db.query(`SELECT user_id FROM nova.${table}`)).rows,[{ user_id: userA }]);
+      await assert.rejects(db.exec(`INSERT INTO nova.${table} ${row(table,'foreign',userB)}`), /row-level security/);
+      assert.equal((await db.query(`UPDATE nova.${table} SET updated_at='2000-01-01' WHERE user_id='${userB}' RETURNING *`)).rows.length,0);
+      await assert.rejects(db.exec(`UPDATE nova.${table} SET user_id='${userB}' WHERE user_id='${userA}'`), /row-level security/);
+      const updated = (await db.query(`UPDATE nova.${table} SET updated_at='2000-01-01' WHERE user_id='${userA}' RETURNING updated_at`)).rows[0];
       assert.ok(new Date(updated.updated_at).getFullYear() >= 2026);
-      assert.equal((await db.query(`DELETE FROM novabudget.${table} WHERE user_id='${userB}' RETURNING *`)).rows.length,0);
-      assert.equal((await db.query(`DELETE FROM novabudget.${table} WHERE user_id='${userA}' RETURNING *`)).rows.length,1);
-      await db.exec(`INSERT INTO novabudget.${table} ${row(table,'own',userA)}; SET request.jwt.claim.sub='${userB}';`);
-      assert.deepEqual((await db.query(`SELECT user_id FROM novabudget.${table}`)).rows,[{ user_id: userB }]);
+      assert.equal((await db.query(`DELETE FROM nova.${table} WHERE user_id='${userB}' RETURNING *`)).rows.length,0);
+      assert.equal((await db.query(`DELETE FROM nova.${table} WHERE user_id='${userA}' RETURNING *`)).rows.length,1);
+      await db.exec(`INSERT INTO nova.${table} ${row(table,'own',userA)}; SET request.jwt.claim.sub='${userB}';`);
+      assert.deepEqual((await db.query(`SELECT user_id FROM nova.${table}`)).rows,[{ user_id: userB }]);
       await db.exec('RESET ROLE');
     }
-    const fn = (await db.query("SELECT proconfig,prosecdef FROM pg_proc WHERE oid='novabudget.set_updated_at()'::regprocedure")).rows[0];
+    const fn = (await db.query("SELECT proconfig,prosecdef FROM pg_proc WHERE oid='nova.set_updated_at()'::regprocedure")).rows[0];
     assert.deepEqual(fn.proconfig,['search_path=pg_catalog']);
     assert.equal(fn.prosecdef,false);
     await db.exec(`DELETE FROM auth.users WHERE id='${userB}'`);
-    for (const table of tables) assert.equal((await db.query(`SELECT * FROM novabudget.${table} WHERE user_id='${userB}'`)).rows.length,0);
+    for (const table of tables) assert.equal((await db.query(`SELECT * FROM nova.${table} WHERE user_id='${userB}'`)).rows.length,0);
   } finally { await db.close(); }
 });
 
@@ -105,13 +111,22 @@ test('AC-P03 collision rolls back every transfer; conforming historical baseline
     await assert.rejects(db.exec(baseline), /already exists/);
     await db.exec('ROLLBACK');
     assert.deepEqual(await snapshot(db,'public'),before);
-    await assert.rejects(db.exec(transfer), /already exists/);
+    await assert.rejects(db.exec(transferNovabudget), /already exists/);
     await db.exec('ROLLBACK');
     assert.deepEqual(await snapshot(db,'public'),before);
     assert.equal((await db.query("SELECT to_regclass('novabudget.savings_accounts') AS table_name")).rows[0].table_name,null);
     await db.exec('DROP TABLE novabudget.inflows');
-    await db.exec(transfer);
+    await db.exec(transferNovabudget);
     assert.deepEqual(await snapshot(db,'novabudget'),before);
+
+    await db.exec(`CREATE SCHEMA nova; CREATE TABLE nova.inflows (collision text);`);
+    await assert.rejects(db.exec(transferNova), /already exists/);
+    await db.exec('ROLLBACK');
+    assert.deepEqual(await snapshot(db,'novabudget'),before);
+    assert.equal((await db.query("SELECT to_regclass('nova.savings_accounts') AS table_name")).rows[0].table_name,null);
+    await db.exec('DROP TABLE nova.inflows');
+    await db.exec(transferNova);
+    assert.deepEqual(await snapshot(db,'nova'),before);
   } finally { await db.close(); }
 });
 

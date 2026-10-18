@@ -20,5 +20,5 @@ test('AC-02 future projects CRUD uses existing local cache without user or cloud
   assert.equal((await load().getFutureProjects())[0].amount, 600);
   await repo.deleteFutureProject(project.id);
   assert.equal((await load().getFutureProjects()).length, 0);
-  assert.ok(memory.has('@novabudget_future_projects_v3'));
+  assert.ok(memory.has('@nova_future_projects_v3'));
 });

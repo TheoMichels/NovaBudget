@@ -124,7 +124,7 @@ export function AuthScreen(): React.JSX.Element {
           showsVerticalScrollIndicator={false}
         >
           <View style={[styles.card, isMobile && styles.cardMobile]}>
-            {/* Header NovaBudget : Logo, Titre & Sous-titre */}
+            {/* Header Nova : Logo, Titre & Sous-titre */}
             <View style={styles.brandHeader}>
               <View style={styles.logoBadge}>
                 <Image
@@ -133,7 +133,7 @@ export function AuthScreen(): React.JSX.Element {
                   resizeMode="cover"
                 />
               </View>
-              <Text style={styles.brandTitle}>NovaBudget</Text>
+              <Text style={styles.brandTitle}>Nova</Text>
               <Text style={styles.brandSubtitle}>Épargne & Prévisions</Text>
               <Text style={styles.brandDescription}>
                 Espace financier sécurisé et synchronisé. Connectez-vous pour

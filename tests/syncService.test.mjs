@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { loadTypeScript } from './helpers/load-typescript.mjs';
 
-const keys = { savings_accounts:'@novabudget_savings_v3', expenses:'@novabudget_expenses_v3', future_projects:'@novabudget_future_projects_v3', inflows:'@novabudget_inflows_v3' };
+const keys = { savings_accounts:'@nova_savings_v3', expenses:'@nova_expenses_v3', future_projects:'@nova_future_projects_v3', inflows:'@nova_inflows_v3' };
 const userId = 'synthetic-user';
 const savings = { id:'sav-a', name:'Livret', category:'securite',amount:100,rate:2,updatedAt:'2026-10-16T12:00:00Z' };
 const expense = { id:'exp-a',title:'Voyage',category:'voyage',amount:50,targetDate:'2027-01-01',isActive:true,updatedAt:'2026-10-16T12:00:00Z' };
@@ -112,7 +112,7 @@ test('AC-S03 delayed writes retain concurrent local edits and serialize cloud or
   const m1=app.projections.saveMonthlyContribution({monthlyTotal:900});
   await waitFor(()=>app.calls.length===3);
   const m2=app.projections.saveMonthlyContribution({monthlyTotal:1000});
-  await waitFor(()=>JSON.parse(app.memory.get('@novabudget_monthly_contribution_v3')).monthlyTotal===1000);
+  await waitFor(()=>JSON.parse(app.memory.get('@nova_monthly_contribution_v3')).monthlyTotal===1000);
   monthGate.resolve();await Promise.all([m1,m2]);
   assert.equal(app.remote.user_settings[0].monthly_savings,1000);
 });
@@ -137,7 +137,7 @@ test('AC-S03 offline reload returns validated cached collections/settings with F
   const memory=new Map([
     [keys.savings_accounts,JSON.stringify([savings])], [keys.expenses,JSON.stringify([expense])],
     [keys.future_projects,JSON.stringify([expense])], [keys.inflows,JSON.stringify([expense])],
-    ['@novabudget_safety_cushion_v3','14500'],['@novabudget_monthly_contribution_v3','{"monthlyTotal":1234}'],
+    ['@nova_safety_cushion_v3','14500'],['@nova_monthly_contribution_v3','{"monthlyTotal":1234}'],
   ]);
   const app=setup({initialMemory:memory});app.failReads();
   assert.equal((await app.savings.getSavings())[0].amount,100);
@@ -182,7 +182,7 @@ test('AC-S02 nonempty pull decodes monetary strings and clears empty siblings wi
   app.remote.user_settings=[{user_id:userId,safety_cushion:'19000.50',monthly_savings:'950.25'}];
   assert.equal((await app.sync.pullSupabaseToLocal(userId)).success,true);
   assert.equal(JSON.parse(app.memory.get(keys.savings_accounts))[0].amount,250.5);
-  assert.equal(JSON.parse(app.memory.get('@novabudget_monthly_contribution_v3')).monthlyTotal,950.25);
+  assert.equal(JSON.parse(app.memory.get('@nova_monthly_contribution_v3')).monthlyTotal,950.25);
   assert.deepEqual(JSON.parse(app.memory.get(keys.expenses)),[]);
   assert.ok(app.calls.every(c=>c.action==='select'));
 });
@@ -214,8 +214,15 @@ for(const operation of ['update','delete'])test(`AC-S03 failed ${operation} on A
   else assert.equal(app.remote.savings_accounts.some(item=>item.id===savings.id),true);
 });
 
-test('AC-S05 clearLocalCache deletes all @novabudget_* keys including legacy versions from storage', async () => {
+test('AC-S05 clearLocalCache deletes all @nova_* and @novabudget_* keys including legacy versions from storage', async () => {
   const seed = new Map([
+    ['@nova_savings_v3', JSON.stringify([savings])],
+    ['@nova_expenses_v3', JSON.stringify([expense])],
+    ['@nova_future_projects_v3', JSON.stringify([expense])],
+    ['@nova_inflows_v3', JSON.stringify([expense])],
+    ['@nova_monthly_contribution_v3', '{"monthlyTotal":1000}'],
+    ['@nova_safety_cushion_v3', '20000'],
+    ['@nova_custom_key', 'custom-value'],
     ['@novabudget_savings_v3', JSON.stringify([savings])],
     ['@novabudget_savings_v2', 'legacy-savings-v2'],
     ['@novabudget_savings_v1', 'legacy-savings-v1'],
@@ -232,7 +239,7 @@ test('AC-S05 clearLocalCache deletes all @novabudget_* keys including legacy ver
   const app = setup({ initialMemory: seed });
   await app.sync.clearLocalCache();
   for (const [key] of seed) {
-    if (key.startsWith('@novabudget')) {
+    if (key.startsWith('@nova') || key.startsWith('@novabudget')) {
       assert.equal(app.memory.has(key), false, `Key ${key} should have been cleared`);
     } else {
       assert.equal(app.memory.get(key), 'keep-me');

@@ -1,4 +1,4 @@
-# 🌿 NovaBudget
+# 🌿 Nova
 
 Application de gestion budgétaire, de suivi des épargnes et de simulation prévisionnelle à court et long terme.
 
@@ -49,7 +49,7 @@ Scannez le QR code avec l'application Expo Go sur iOS ou Android.
 ## 📁 Structure du Projet
 
 ```text
-NovaBudget/
+nova/
 ├── App.tsx                     # Vue principale & dashboard responsive
 ├── index.ts                    # Point d'entrée Expo
 ├── package.json                # Dépendances (Expo 57, React 19, React Native Web)

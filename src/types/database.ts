@@ -1,5 +1,5 @@
-// Généré via MCP Supabase generate_typescript_types, projet skzehjvqvdbxfehbrgzu, schéma novabudget, 16/10/2026.
-// Régénération (lecture seule) : node scripts/generate-db-types.mjs --project-id <ref> --schema novabudget
+// Généré via MCP Supabase generate_typescript_types, projet skzehjvqvdbxfehbrgzu, schéma nova, 18/10/2026.
+// Régénération (lecture seule) : node scripts/generate-db-types.mjs --project-id <ref> --schema nova
 export type Json =
   | string
   | number
@@ -14,7 +14,7 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.18"
   }
-  novabudget: {
+  nova: {
     Tables: {
       expenses: {
         Row: {
@@ -211,7 +211,7 @@ export type Database = {
 
 type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
 
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "novabudget">]
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "nova">]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
@@ -327,25 +327,25 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  novabudget: {
+  nova: {
     Enums: {},
   },
 } as const
 
 
 // Alias dérivés du contrat généré ; aucun champ métier redéfini manuellement.
-export type SavingsAccountRow = Database["novabudget"]["Tables"]["savings_accounts"]["Row"];
-export type SavingsAccountInsert = Database["novabudget"]["Tables"]["savings_accounts"]["Insert"];
-export type SavingsAccountUpdate = Database["novabudget"]["Tables"]["savings_accounts"]["Update"];
-export type ExpenseRow = Database["novabudget"]["Tables"]["expenses"]["Row"];
-export type ExpenseInsert = Database["novabudget"]["Tables"]["expenses"]["Insert"];
-export type ExpenseUpdate = Database["novabudget"]["Tables"]["expenses"]["Update"];
-export type FutureProjectRow = Database["novabudget"]["Tables"]["future_projects"]["Row"];
-export type FutureProjectInsert = Database["novabudget"]["Tables"]["future_projects"]["Insert"];
-export type FutureProjectUpdate = Database["novabudget"]["Tables"]["future_projects"]["Update"];
-export type InflowRow = Database["novabudget"]["Tables"]["inflows"]["Row"];
-export type InflowInsert = Database["novabudget"]["Tables"]["inflows"]["Insert"];
-export type InflowUpdate = Database["novabudget"]["Tables"]["inflows"]["Update"];
-export type UserSettingsRow = Database["novabudget"]["Tables"]["user_settings"]["Row"];
-export type UserSettingsInsert = Database["novabudget"]["Tables"]["user_settings"]["Insert"];
-export type UserSettingsUpdate = Database["novabudget"]["Tables"]["user_settings"]["Update"];
+export type SavingsAccountRow = Database["nova"]["Tables"]["savings_accounts"]["Row"];
+export type SavingsAccountInsert = Database["nova"]["Tables"]["savings_accounts"]["Insert"];
+export type SavingsAccountUpdate = Database["nova"]["Tables"]["savings_accounts"]["Update"];
+export type ExpenseRow = Database["nova"]["Tables"]["expenses"]["Row"];
+export type ExpenseInsert = Database["nova"]["Tables"]["expenses"]["Insert"];
+export type ExpenseUpdate = Database["nova"]["Tables"]["expenses"]["Update"];
+export type FutureProjectRow = Database["nova"]["Tables"]["future_projects"]["Row"];
+export type FutureProjectInsert = Database["nova"]["Tables"]["future_projects"]["Insert"];
+export type FutureProjectUpdate = Database["nova"]["Tables"]["future_projects"]["Update"];
+export type InflowRow = Database["nova"]["Tables"]["inflows"]["Row"];
+export type InflowInsert = Database["nova"]["Tables"]["inflows"]["Insert"];
+export type InflowUpdate = Database["nova"]["Tables"]["inflows"]["Update"];
+export type UserSettingsRow = Database["nova"]["Tables"]["user_settings"]["Row"];
+export type UserSettingsInsert = Database["nova"]["Tables"]["user_settings"]["Insert"];
+export type UserSettingsUpdate = Database["nova"]["Tables"]["user_settings"]["Update"];

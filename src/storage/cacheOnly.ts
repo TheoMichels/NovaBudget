@@ -74,10 +74,10 @@ function cachedValue<T>(key: string, schema: z.ZodType<T, z.ZodTypeDef, unknown>
 }
 export type CollectionCache<T> = ReturnType<typeof cachedValue<T[]>>;
 export const collectionCaches: { [K in CollectionName]: CollectionCache<CollectionItems[K]> } = {
-  savings_accounts: cachedValue<SavingsAccount[]>("@novabudget_savings_v3", savingsSchema.array(), []),
-  expenses: cachedValue<Expense[]>("@novabudget_expenses_v3", expenseSchema.array(), []),
-  future_projects: cachedValue<FutureProject[]>("@novabudget_future_projects_v3", expenseSchema.array(), []),
-  inflows: cachedValue<OneOffInflow[]>("@novabudget_inflows_v3", inflowSchema.array(), []),
+  savings_accounts: cachedValue<SavingsAccount[]>("@nova_savings_v3", savingsSchema.array(), []),
+  expenses: cachedValue<Expense[]>("@nova_expenses_v3", expenseSchema.array(), []),
+  future_projects: cachedValue<FutureProject[]>("@nova_future_projects_v3", expenseSchema.array(), []),
+  inflows: cachedValue<OneOffInflow[]>("@nova_inflows_v3", inflowSchema.array(), []),
 };
-export const monthlyCache = cachedValue<MonthlyContributionConfig>("@novabudget_monthly_contribution_v3", contributionSchema, DEFAULT_MONTHLY_CONTRIBUTION);
-export const cushionCache = cachedValue<number>("@novabudget_safety_cushion_v3", moneySchema, DEFAULT_SAFETY_CUSHION);
+export const monthlyCache = cachedValue<MonthlyContributionConfig>("@nova_monthly_contribution_v3", contributionSchema, DEFAULT_MONTHLY_CONTRIBUTION);
+export const cushionCache = cachedValue<number>("@nova_safety_cushion_v3", moneySchema, DEFAULT_SAFETY_CUSHION);

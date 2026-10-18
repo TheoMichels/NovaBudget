@@ -2,7 +2,7 @@ datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
-  schemas   = ["novabudget", "auth"]
+  schemas   = ["nova", "auth"]
 }
 
 generator client {
@@ -28,7 +28,7 @@ model SavingsAccount {
   @@index([userId], map: "idx_savings_accounts_user_id")
   @@index([userId, category], map: "idx_savings_accounts_category")
   @@map("savings_accounts")
-  @@schema("novabudget")
+  @@schema("nova")
 }
 
 // -----------------------------------------------------------------------------
@@ -50,7 +50,7 @@ model Expense {
   @@index([userId, targetDate], map: "idx_expenses_target_date")
   @@index([userId, isActive], map: "idx_expenses_is_active")
   @@map("expenses")
-  @@schema("novabudget")
+  @@schema("nova")
 }
 
 // -----------------------------------------------------------------------------
@@ -72,7 +72,7 @@ model FutureProject {
   @@index([userId, targetDate], map: "idx_future_projects_target_date")
   @@index([userId, isActive], map: "idx_future_projects_is_active")
   @@map("future_projects")
-  @@schema("novabudget")
+  @@schema("nova")
 }
 
 // -----------------------------------------------------------------------------
@@ -93,7 +93,7 @@ model Inflow {
   @@index([userId, targetDate], map: "idx_inflows_target_date")
   @@index([userId, isActive], map: "idx_inflows_is_active")
   @@map("inflows")
-  @@schema("novabudget")
+  @@schema("nova")
 }
 
 // -----------------------------------------------------------------------------
@@ -107,5 +107,5 @@ model UserSettings {
   updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@map("user_settings")
-  @@schema("novabudget")
+  @@schema("nova")
 }

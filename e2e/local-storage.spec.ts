@@ -7,8 +7,8 @@ test('AC-01/02/04 local CRUD and settings survive reload with no Supabase networ
     // Une session périmée historique ne doit pas provoquer de rafraîchissement cloud.
     if (!localStorage.getItem('test-seeded')) {
       localStorage.setItem('sb-synthetic-auth-token', JSON.stringify({ access_token: 'expired-synthetic', refresh_token: 'synthetic', expires_at: 1, user: { id: 'historical-user' } }));
-      localStorage.setItem('@novabudget_savings_v3', JSON.stringify([{ id: 'legacy-local', name: 'Compte préexistant', category: 'securite', amount: 1200, rate: 0 }]));
-      localStorage.setItem('@novabudget_future_projects_v3', JSON.stringify([{ id: 'legacy-project', title: 'Projet préexistant', category: 'autre', amount: 400, targetDate: '2027-01', isActive: true }]));
+      localStorage.setItem('@nova_savings_v3', JSON.stringify([{ id: 'legacy-local', name: 'Compte préexistant', category: 'securite', amount: 1200, rate: 0 }]));
+      localStorage.setItem('@nova_future_projects_v3', JSON.stringify([{ id: 'legacy-project', title: 'Projet préexistant', category: 'autre', amount: 400, targetDate: '2027-01', isActive: true }]));
       localStorage.setItem('test-seeded', '1');
     }
   });
@@ -42,12 +42,12 @@ test('AC-01/02/04 local CRUD and settings survive reload with no Supabase networ
   await page.getByLabel('Augmenter de 100€', { exact: true }).click();
   await page.getByLabel('Seuil de sécurité en euros').fill('12345');
   await page.getByLabel('Seuil de sécurité en euros').blur();
-  await expect.poll(() => page.evaluate(() => localStorage.getItem('@novabudget_safety_cushion_v3'))).toBe('12345');
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('@nova_safety_cushion_v3'))).toBe('12345');
   await page.reload();
   for (const name of ['Compte préexistant', 'Projet préexistant', 'Épargne test', 'Dépense test', 'Rentrée test']) await expect(page.getByLabel(`Supprimer ${name}`, { exact: true })).toBeVisible();
   await expect(page.getByLabel('Seuil de sécurité en euros')).toHaveValue('12345');
   await expect(page.getByText(/^900\s*€$/)).toBeVisible();
-  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('@novabudget_monthly_contribution_v3') ?? '{}').monthlyTotal)).toBe(900);
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('@nova_monthly_contribution_v3') ?? '{}').monthlyTotal)).toBe(900);
 
   for (const name of ['Épargne test', 'Dépense test', 'Rentrée test']) await page.getByLabel(`Supprimer ${name}`, { exact: true }).click();
   await page.reload();

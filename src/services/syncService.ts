@@ -226,6 +226,12 @@ export async function pullFromCloud(userId: string): Promise<SyncResult> {
 export async function clearLocalCache(): Promise<void> {
   const toRemove = new Set<string>();
   const knownPrefixes = [
+    "@nova_savings",
+    "@nova_expenses",
+    "@nova_future_projects",
+    "@nova_inflows",
+    "@nova_monthly_contribution",
+    "@nova_safety_cushion",
     "@novabudget_savings",
     "@novabudget_expenses",
     "@novabudget_future_projects",
@@ -251,7 +257,7 @@ export async function clearLocalCache(): Promise<void> {
     try {
       const allKeys = await asyncStorageAny.getAllKeys();
       for (const k of allKeys) {
-        if (k.startsWith("@novabudget")) {
+        if (k.startsWith("@nova") || k.startsWith("@novabudget")) {
           toRemove.add(k);
         }
       }
@@ -282,12 +288,12 @@ export async function clearLocalCache(): Promise<void> {
       const webKeysToRemove = new Set<string>();
       for (let i = 0; i < window.localStorage.length; i++) {
         const key = window.localStorage.key(i);
-        if (key && key.startsWith("@novabudget")) {
+        if (key && (key.startsWith("@nova") || key.startsWith("@novabudget"))) {
           webKeysToRemove.add(key);
         }
       }
       for (const key of keysArray) {
-        if (key.startsWith("@novabudget")) {
+        if (key.startsWith("@nova") || key.startsWith("@novabudget")) {
           webKeysToRemove.add(key);
         }
       }

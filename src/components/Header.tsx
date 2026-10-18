@@ -77,7 +77,7 @@ export function Header({
           style={[styles.brandTitle, isNarrow && styles.brandTitleNarrow]}
           numberOfLines={1}
         >
-          NovaBudget
+          Nova
         </Text>
         {!isNarrow && (
           <Text style={styles.brandSubtitle} numberOfLines={1}>

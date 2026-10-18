@@ -81,13 +81,13 @@ export const hybridAuthStorage = {
 };
 
 /**
- * Instance Supabase typée avec l'interface Database de NovaBudget.
+ * Instance Supabase typée avec l'interface Database de Nova.
  * Si les variables d'environnement sont absentes, reste null pour éviter tout crash au démarrage.
  */
 export const supabase: SupabaseClient<Database> | null = !isLocalMode && isSupabaseConfigured
   ? createClient<Database>(supabaseUrl as string, supabaseAnonKey as string, {
-      // Schéma applicatif dédié novabudget, auth centralisée sur auth.users.
-      db: { schema: "novabudget", retry: false, timeout: 10000 },
+      // Schéma applicatif dédié nova, auth centralisée sur auth.users.
+      db: { schema: "nova", retry: false, timeout: 10000 },
       auth: {
         storage: hybridAuthStorage,
         autoRefreshToken: true,

@@ -192,7 +192,7 @@ export function AuthModal({ visible, onClose, onAuthSuccess }: AuthModalProps) {
                 </View>
                 <View style={styles.headerTexts}>
                   <Text style={styles.title}>
-                    {isAuthenticated ? "Espace Cloud Synchronisé" : "Compte Cloud NovaBudget"}
+                    {isAuthenticated ? "Espace Cloud Synchronisé" : "Compte Cloud Nova"}
                   </Text>
                   <Text style={styles.subtitle}>
                     {isAuthenticated

@@ -178,9 +178,9 @@ test('AC-03 (6) deconnexion -> retour AuthScreen et cache vide', async ({ page }
     await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
   });
   await page.addInitScript(() => {
-    localStorage.setItem('@novabudget_savings_v3', JSON.stringify([{ id: 'sav-1', name: 'Livret A', category: 'securite', amount: 5000, rate: 3 }]));
-    localStorage.setItem('@novabudget_expenses_v3', JSON.stringify([]));
-    localStorage.setItem('@novabudget_safety_cushion_v3', '15000');
+    localStorage.setItem('@nova_savings_v3', JSON.stringify([{ id: 'sav-1', name: 'Livret A', category: 'securite', amount: 5000, rate: 3 }]));
+    localStorage.setItem('@nova_expenses_v3', JSON.stringify([]));
+    localStorage.setItem('@nova_safety_cushion_v3', '15000');
     localStorage.setItem('@novabudget_legacy_v1', 'legacy-data');
     localStorage.setItem('other_app_token', 'preserve-this');
   });
@@ -189,7 +189,7 @@ test('AC-03 (6) deconnexion -> retour AuthScreen et cache vide', async ({ page }
   await page.getByLabel('Se déconnecter', { exact: true }).click();
   await expect(page.getByPlaceholder('nom@exemple.com')).toBeVisible();
   const remainingKeys = await page.evaluate(() => Object.keys(localStorage));
-  const novaKeys = remainingKeys.filter(k => k.startsWith('@novabudget'));
+  const novaKeys = remainingKeys.filter(k => k.startsWith('@nova') || k.startsWith('@novabudget'));
   expect(novaKeys).toEqual([]);
   expect(remainingKeys).toContain('other_app_token');
 });
@@ -280,13 +280,13 @@ test('AC-S01/02/03 cloud CRUD survives reload; empty server and pull clear cache
   await page.reload();
   await expect(page.getByLabel('Supprimer Épargne cloud', { exact: true })).toHaveCount(0);
   expect(writes).toEqual(['savings_accounts', 'savings_accounts']);
-  await page.evaluate(() => localStorage.setItem('@novabudget_savings_v3', JSON.stringify([{ id: 'stale', name: 'Cache obsolète', category: 'securite', amount: 50, rate: 0 }])));
+  await page.evaluate(() => localStorage.setItem('@nova_savings_v3', JSON.stringify([{ id: 'stale', name: 'Cache obsolète', category: 'securite', amount: 50, rate: 0 }])));
   await page.getByLabel('Gérer mon compte et synchronisation').click();
   await page.getByText('⬇️ Restaurer (Pull)', { exact: true }).click();
   await expect(page.getByText('Données restaurées depuis le Cloud avec succès !', { exact: true })).toBeVisible();
-  await expect.poll(() => page.evaluate(() => localStorage.getItem('@novabudget_savings_v3'))).toBe('[]');
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('@nova_savings_v3'))).toBe('[]');
   expect(writes).toEqual(['savings_accounts', 'savings_accounts']);
-  expect(profiles.every(profile => profile === 'novabudget')).toBe(true);
+  expect(profiles.every(profile => profile === 'nova')).toBe(true);
 });
 
 test.describe('offline cloud cache', () => {
@@ -300,9 +300,9 @@ test.describe('offline cloud cache', () => {
       await route.abort('internetdisconnected');
     });
     await page.addInitScript(() => {
-      localStorage.setItem('@novabudget_savings_v3', JSON.stringify([{ id: 'offline', name: 'Livret hors ligne', category: 'securite', amount: 4321, rate: 2 }]));
-      localStorage.setItem('@novabudget_monthly_contribution_v3', JSON.stringify({ monthlyTotal: 1234 }));
-      localStorage.setItem('@novabudget_safety_cushion_v3', '14500');
+      localStorage.setItem('@nova_savings_v3', JSON.stringify([{ id: 'offline', name: 'Livret hors ligne', category: 'securite', amount: 4321, rate: 2 }]));
+      localStorage.setItem('@nova_monthly_contribution_v3', JSON.stringify({ monthlyTotal: 1234 }));
+      localStorage.setItem('@nova_safety_cushion_v3', '14500');
     });
     await page.goto('https://budget.example');
     await expect(page.getByText('Livret hors ligne', { exact: true })).toBeVisible();

@@ -13,15 +13,15 @@ function repository(file, seed = new Map(), cloud = null) {
 const account = { id: 'old', name: 'Historique', amount: 100, rate: 0, category: 'securite' };
 test('AC-02 corrupted storage rejects reads and writes without changing original bytes', async () => {
   for (const value of ['{', '{}', '[{"amount":"100"}]']) {
-    const seed = new Map([['@novabudget_savings_v3', value]]);
+    const seed = new Map([['@nova_savings_v3', value]]);
     const repo = repository('src/storage/savingsRepository.ts', seed);
     await assert.rejects(repo.getSavings(), /Données locales/);
     await assert.rejects(repo.saveSavings([account]), /Données locales/);
-    assert.equal(seed.get('@novabudget_savings_v3'), value);
+    assert.equal(seed.get('@nova_savings_v3'), value);
   }
 });
 test('AC-02 legacy records without updatedAt remain readable', async () => {
-  const seed = new Map([['@novabudget_savings_v3', JSON.stringify([account])]]);
+  const seed = new Map([['@nova_savings_v3', JSON.stringify([account])]]);
   assert.equal((await repository('src/storage/savingsRepository.ts', seed).getSavings())[0].amount, 100);
 });
 test('AC-03 invalid numeric and form inputs are rejected before persistence', async () => {
@@ -31,11 +31,11 @@ test('AC-03 invalid numeric and form inputs are rejected before persistence', as
   assert.equal(seed.size, 0);
 });
 test('AC-02 settings reject malformed values without overwriting them', async () => {
-  const seed = new Map([['@novabudget_safety_cushion_v3', 'broken']]);
+  const seed = new Map([['@nova_safety_cushion_v3', 'broken']]);
   const repo = repository('src/storage/settingsRepository.ts', seed);
   await assert.rejects(repo.getSafetyCushion(), /Données locales/);
   await assert.rejects(repo.saveSafetyCushion(200), /Données locales/);
-  assert.equal(seed.get('@novabudget_safety_cushion_v3'), 'broken');
+  assert.equal(seed.get('@nova_safety_cushion_v3'), 'broken');
 });
 test('AC-02 all collection keys and monthly settings preserve invalid bytes', async () => {
   for (const [file, key, read, write, value] of [
@@ -44,7 +44,7 @@ test('AC-02 all collection keys and monthly settings preserve invalid bytes', as
     ['projectionRepository', 'inflows', 'getInflows', 'saveInflows', []],
     ['projectionRepository', 'monthly_contribution', 'getMonthlyContribution', 'saveMonthlyContribution', { monthlyTotal: 800 }],
   ]) {
-    const storageKey = `@novabudget_${key}_v3`;
+    const storageKey = `@nova_${key}_v3`;
     const seed = new Map([[storageKey, '{']]);
     const repo = repository(`src/storage/${file}.ts`, seed);
     await assert.rejects(repo[read](), /Données locales/);
@@ -54,11 +54,11 @@ test('AC-02 all collection keys and monthly settings preserve invalid bytes', as
 });
 test('AC-03 invalid cloud response keeps the valid local cache', async () => {
   const raw = JSON.stringify([account]);
-  const seed = new Map([['@novabudget_savings_v3', raw]]);
+  const seed = new Map([['@nova_savings_v3', raw]]);
   const cloud = { from: () => ({ select: () => ({ eq: () => ({ order: async () => ({ data: [{ ...account, amount: 'broken' }] }) }) }) }) };
   const data = await repository('src/storage/savingsRepository.ts', seed, cloud).getSavings('test-user');
   assert.equal(data[0].amount, 100);
-  assert.equal(seed.get('@novabudget_savings_v3'), raw);
+  assert.equal(seed.get('@nova_savings_v3'), raw);
 });
 test('AC-03 French number parser refuses partial numbers and accepts French spacing', () => {
   const { parseFrenchNumber } = loadTypeScript('src/types/validation.ts');

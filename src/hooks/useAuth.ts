@@ -148,7 +148,7 @@ function initAuth(): Promise<void> {
 initAuth();
 
 /**
- * Hook gérant l'état d'authentification Supabase pour NovaBudget.
+ * Hook gérant l'état d'authentification Supabase pour Nova.
  * Fournit l'état utilisateur, la session active, le statut de chargement et les actions d'authentification.
  * Synchronise tous les composants abonnés (App, AuthScreen, AuthModal, Header) sans délai.
  */

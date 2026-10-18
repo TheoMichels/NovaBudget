@@ -1,15 +1,15 @@
-# Lancer NovaBudget en local
+# Lancer Nova en local
 
 ```sh
 npm install
 npm run web
 ```
 
-Ouvrir `http://localhost:8081` : le tableau de bord est accessible immédiatement, sans compte ni clés Supabase. Le badge « Stockage local » indique ce mode. Les comptes, dépenses, rentrées, projets historiques, versements mensuels et matelas sont enregistrés dans le navigateur par les repositories AsyncStorage existants. Les anciennes clés `@novabudget_*_v3` restent utilisées ; aucune remise à zéro n'est effectuée.
+Ouvrir `http://localhost:8081` : le tableau de bord est accessible immédiatement, sans compte ni clés Supabase. Le badge « Stockage local » indique ce mode. Les comptes, dépenses, rentrées, projets historiques, versements mensuels et matelas sont enregistrés dans le navigateur par les repositories AsyncStorage existants. Les clés `@nova_*_v3` sont utilisées ; aucune remise à zéro n'est effectuée.
 
 Le stockage est propre à l'origine (protocole, hôte et port), au navigateur et au profil. Conserver la même adresse et le port 8081 pour retrouver ses données. Les données d'un ancien profil cloud déjà mises en cache restent visibles localement. Elles ne sont pas envoyées vers Supabase en local, même si une ancienne session ou des clés existent.
 
-Pour inspecter ou supprimer ces données : outils de développement du navigateur → Application / Stockage → stockage local de l'origine → clés NovaBudget. Effacer le stockage du site ou utiliser la navigation privée peut les supprimer. Elles ne sont pas écrites dans le dépôt Git. Il n'y a pas de synchronisation multi-appareil en mode local.
+Pour inspecter ou supprimer ces données : outils de développement du navigateur → Application / Stockage → stockage local de l'origine → clés Nova. Effacer le stockage du site ou utiliser la navigation privée peut les supprimer. Elles ne sont pas écrites dans le dépôt Git. Il n'y a pas de synchronisation multi-appareil en mode local.
 
 Pour prévisualiser un export statique : `npm run build`, puis `npm run preview` (`http://localhost:4173`). Cette origine a son propre stockage, distinct du serveur de développement. Le build vide le cache Metro pour actualiser la configuration incorporée.
 
@@ -44,13 +44,13 @@ Les quatre états d’interface existants restent utilisés : chargement, vide, 
 # Types Supabase et authentification
 
 `src/types/database.ts` contient le contrat réellement généré par le MCP Supabase `generate_typescript_types` le 16/10/2026 depuis le projet `skzehjvqvdbxfehbrgzu`, schéma **public** (PostgREST 14.18). Les quinze alias Row/Insert/Update sont dérivés de ce contrat ; aucun champ n’est maintenu à la main. Le fichier temporaire de passation a été intégré puis retiré pour éviter deux copies concurrentes.
-Le client unique configure explicitement `db.schema = public`, en compatibilité avec la base réelle. La cible Prisma `novabudget` sera activée seulement pendant la bascule L6 autorisée, avec régénération des types correspondants et contrôle de l’exposition API.
+Le client unique configure explicitement `db.schema = nova`.
 Pour régénérer le contrat, installer/authentifier la CLI Supabase selon sa [documentation officielle](https://supabase.com/docs/guides/api/rest/generating-types), vérifier `supabase gen types --help`, puis lancer :
 
 ```sh
-node scripts/generate-db-types.mjs --project-id skzehjvqvdbxfehbrgzu --schema public
+node scripts/generate-db-types.mjs --project-id skzehjvqvdbxfehbrgzu --schema nova
 npm run typecheck
 ```
 
-Le script appelle uniquement `supabase gen types typescript` avec un schéma explicite public/novabudget ; il introspecte la structure, ne lit ni ne reproduit les lignes et n’applique aucune migration. En cas d’échec, le fichier existant est conservé. Les tests du script substituent le runner, sans appel réseau. La commande réelle n’a pas été exécutée pendant L5 (source MCP fournie).
+Le script appelle uniquement `supabase gen types typescript` avec un schéma explicite public/nova ; il introspecte la structure, ne lit ni ne reproduit les lignes et n’applique aucune migration. En cas d’échec, le fichier existant est conservé. Les tests du script substituent le runner, sans appel réseau. La commande réelle n’a pas été exécutée pendant L5 (source MCP fournie).
 Les erreurs d’inscription/connexion/déconnexion sont traduites en français sans afficher les détails privés du serveur. Le client détecte les callbacks de session dans l’URL sur le web ; le mode local ne crée aucun client Supabase et ne lance pas d’authentification.

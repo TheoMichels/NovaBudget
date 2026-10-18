@@ -20,8 +20,8 @@ export function generateDatabaseTypes(args, run = spawnSync, save = (content) =>
   const options = Object.fromEntries(args.reduce((pairs, value, index) => index % 2 === 0 ? [...pairs, [value, args[index + 1]]] : pairs, []));
   const project = options['--project-id'];
   const schema = options['--schema'];
-  if (args.length !== 4 || !/^[a-z0-9]{20}$/.test(project ?? '') || !['public', 'novabudget'].includes(schema)) {
-    throw new Error('Usage : node scripts/generate-db-types.mjs --project-id <référence> --schema public|novabudget');
+  if (args.length !== 4 || !/^[a-z0-9]{20}$/.test(project ?? '') || !['public', 'novabudget', 'nova'].includes(schema)) {
+    throw new Error('Usage : node scripts/generate-db-types.mjs --project-id <référence> --schema public|novabudget|nova');
   }
   const result = run('supabase', ['gen', 'types', 'typescript', '--project-id', project, '--schema', schema], { cwd: root, encoding: 'utf8', shell: false, maxBuffer: 5 * 1024 * 1024 });
   if (result.error || result.status !== 0 || typeof result.stdout !== 'string' ||

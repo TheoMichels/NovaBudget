@@ -28,7 +28,7 @@ export function SmartRecommendationCard({
         <View style={{ flex: 1, minWidth: 0 }}>
           <View style={styles.titleRow}>
             <Text style={[styles.title, isNarrow && styles.titleNarrow]} numberOfLines={1}>
-              Recommandation Intelligente NovaBudget
+              Recommandation Intelligente Nova
             </Text>
             <View style={styles.tag}>
               <Text style={styles.tagText}>Optimisation</Text>
