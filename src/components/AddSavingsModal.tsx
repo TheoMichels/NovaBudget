@@ -9,7 +9,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { colors, shadows } from "../theme/colors";
+import { colors, shadows, spacing } from "../theme/colors";
 import { cursorPointer } from "../theme/webCursor";
 import { SavingsCategory } from "../types/savingsAccount";
 
@@ -114,7 +114,11 @@ export function AddSavingsModal({
             </Pressable>
           </View>
 
-          <ScrollView style={styles.form} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            style={styles.form}
+            contentContainerStyle={styles.formContent}
+            showsVerticalScrollIndicator={false}
+          >
             {submitError ? (
               <View testID="form-error" accessibilityRole="alert" style={styles.errorBox}>
                 <Text style={styles.errorText}>⚠️ {submitError}</Text>
@@ -333,7 +337,11 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
   },
   form: {
+    marginHorizontal: -spacing.xs,
     maxHeight: 380,
+  },
+  formContent: {
+    paddingHorizontal: spacing.xs,
   },
   inputGroup: {
     marginBottom: 14,

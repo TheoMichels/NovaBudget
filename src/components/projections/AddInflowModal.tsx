@@ -9,7 +9,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { colors, shadows } from "../../theme/colors";
+import { colors, shadows, spacing } from "../../theme/colors";
 import { cursorPointer } from "../../theme/webCursor";
 import { MonthYearCalendar } from "../MonthYearCalendar";
 import {
@@ -96,7 +96,11 @@ export function AddInflowModal({
           </View>
 
           {submitError && <Text testID="form-error" accessibilityRole="alert" style={{ color: colors.danger }}>{submitError}</Text>}
-          <ScrollView style={styles.form} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            style={styles.form}
+            contentContainerStyle={styles.formContent}
+            showsVerticalScrollIndicator={false}
+          >
             {/* Title */}
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Motif de la rentrée</Text>
@@ -256,7 +260,11 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
   },
   form: {
+    marginHorizontal: -spacing.xs,
     maxHeight: 460,
+  },
+  formContent: {
+    paddingHorizontal: spacing.xs,
   },
   inputGroup: {
     marginBottom: 14,
