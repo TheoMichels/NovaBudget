@@ -541,7 +541,7 @@ export function UnifiedManagementSections({
         </View>
       ) : (
         <View style={styles.itemsList}>
-          {expenses.map((exp) => {
+          {[...expenses].sort((a, b) => a.targetDate.localeCompare(b.targetDate)).map((exp) => {
             const shortCat = EXPENSE_CATEGORY_SHORT_LABELS[exp.category] || "Dépense";
             const dateStr = formatFrenchMonthYear(exp.targetDate, "short");
 
@@ -656,7 +656,7 @@ export function UnifiedManagementSections({
         </View>
       ) : (
         <View style={styles.itemsList}>
-          {inflows.map((inf) => {
+          {[...inflows].sort((a, b) => a.targetDate.localeCompare(b.targetDate)).map((inf) => {
             const dateStr = formatFrenchMonthYear(inf.targetDate, "short");
 
             return (
