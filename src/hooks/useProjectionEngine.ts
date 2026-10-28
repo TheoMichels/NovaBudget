@@ -55,7 +55,10 @@ export function useProjectionEngine(
 
     let runningCapital = initialSavings;
     let accumulatedContributions = 0;
-    let accumulatedInterest = 0;
+    // Interest earned during the current calendar year stays outside the capital
+    // until January of the following year.
+    let accumulatedInterest = Math.max(0, initialSavings * monthlyRate) * startMonth;
+    let interestAwaitingCredit = accumulatedInterest;
     let totalProjectsOut = 0;
     let totalInflowsIn = 0;
 
@@ -73,7 +76,7 @@ export function useProjectionEngine(
       monthlyContribution: 0,
       accumulatedContributions: 0,
       interestEarnedThisMonth: 0,
-      accumulatedInterest: 0,
+      accumulatedInterest: Math.round(accumulatedInterest),
       inflowsThisMonth: 0,
       projectsThisMonth: 0,
       events: [],
@@ -132,10 +135,17 @@ export function useProjectionEngine(
         }
       });
 
-      // D. Compound interest generated on positive remaining balance
+      // D. Credit the previous calendar year's interest in January.
+      if (curMonth === 1 && interestAwaitingCredit > 0) {
+        runningCapital += interestAwaitingCredit;
+        interestAwaitingCredit = 0;
+      }
+
+      // E. Interest accrues monthly on projected capital, but is credited only
+      // in January. The current-year YTD estimate above uses initial capital.
       const interestEarned = Math.max(0, runningCapital * monthlyRate);
-      runningCapital += interestEarned;
       accumulatedInterest += interestEarned;
+      interestAwaitingCredit += interestEarned;
 
       const roundedCapital = Math.round(runningCapital);
 
