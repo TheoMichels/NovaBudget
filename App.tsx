@@ -137,8 +137,31 @@ function AuthenticatedDashboard(): React.JSX.Element {
     );
   }, [activeInflowsUntilDate]);
 
-  // 4. Intérêts composés cumulés générés par les livrets jusqu'à cette date
-  const accumulatedInterestUntilDate = selectedPoint?.accumulatedInterest ?? 0;
+  // Show credited interest only. Accrued interest remains available in the
+  // monthly series, but is not part of the visible total until the next January.
+  const accumulatedInterestUntilDate = useMemo(() => {
+    return forecast.monthlyData.reduce((total, point, index) => {
+      if (
+        index === 0 ||
+        index > safeSelectedMonthIndex ||
+        !point.dateStr.endsWith("-01")
+      ) {
+        return total;
+      }
+
+      const previousJanuary = forecast.monthlyData.find((candidate) =>
+        candidate.dateStr === `${Number(point.dateStr.slice(0, 4)) - 1}-01`
+      );
+      const previousPoint = forecast.monthlyData[index - 1];
+      const credit = previousJanuary
+        ? previousPoint.accumulatedInterest - previousJanuary.accumulatedInterest +
+          (previousJanuary.interestEarnedThisMonth ||
+            (previousJanuary.monthIndex === 0 ? previousJanuary.accumulatedInterest : 0))
+        : previousPoint.accumulatedInterest;
+
+      return total + Math.max(0, credit);
+    }, 0);
+  }, [forecast.monthlyData, safeSelectedMonthIndex]);
 
   // 5. Épargne projetée exacte (capital du point mensuel sélectionné, incluant épargne, apports, rentrées, dépenses et intérêts)
   const projectedSavings =

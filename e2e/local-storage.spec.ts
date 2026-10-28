@@ -122,7 +122,7 @@ for (const width of [375, 1440]) {
   }
 }
 
-test('AC-07 annual interest credit is visible as a January step in line and area', async ({ page }) => {
+test('AC-07 annual interest is credited in January and follows the shared smooth curve', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.clock.setFixedTime(new Date('2026-10-15T12:00:00Z'));
   await page.addInitScript(() => {
@@ -135,25 +135,9 @@ test('AC-07 annual interest credit is visible as a January step in line and area
   await page.goto('/');
   await page.getByTestId('projection-chart').scrollIntoViewIfNeeded();
 
-  const verticalStepHeights = async (testId: string) => {
-    const d = await page.getByTestId(testId).getAttribute('d');
-    expect(d).toBeTruthy();
-    const commands = d?.matchAll(/C\s*(-?[\d.]+)\s+(-?[\d.]+),\s*(-?[\d.]+)\s+(-?[\d.]+),\s*(-?[\d.]+)\s+(-?[\d.]+)\s+L\s*(-?[\d.]+)\s+(-?[\d.]+)/g);
-    return Array.from(commands ?? [])
-      .filter(command => Number(command[5]) === Number(command[7]) && Number(command[6]) !== Number(command[8]))
-      .map(command => Math.abs(Number(command[6]) - Number(command[8])));
-  };
-
-  await expect.poll(async () => (await verticalStepHeights('projection-chart-line')).length).toBeGreaterThanOrEqual(3);
-  const lineHeights = await verticalStepHeights('projection-chart-line');
-  const areaHeights = await verticalStepHeights('projection-chart-area');
-  expect(lineHeights).toHaveLength(3);
-  expect(areaHeights.length).toBeGreaterThanOrEqual(3);
-  expect(lineHeights[1]).toBeGreaterThan(lineHeights[0] * 1.05);
-  expect(lineHeights[1]).toBeLessThan(lineHeights[0] * 1.6);
-  for (let i = 0; i < lineHeights.length; i++) {
-    expect(areaHeights[i]).toBeCloseTo(lineHeights[i], 5);
-  }
+  const linePath = await page.getByTestId('projection-chart-line').getAttribute('d');
+  expect(linePath).toBeTruthy();
+  expect(linePath).not.toMatch(/\bL\b/);
 
   const chart = page.getByTestId('projection-chart');
   const box = await chart.boundingBox();
@@ -166,6 +150,8 @@ test('AC-07 annual interest credit is visible as a January step in line and area
   if (!svgBox || !svgWidth) throw new Error('Dimensions SVG introuvables');
   const december2026SvgX = 54 + (2.25 / 36) * (svgWidth - 54 - 24);
   await page.mouse.click(svgBox.x + (december2026SvgX / svgWidth) * svgBox.width, box.y + 100);
+  await expect(page.getByTestId('chart-date-headline')).toHaveText('📅 Décembre 2026');
+  await expect(page.getByTestId('chart-capital-value')).toHaveText('100 000 €');
   await expect(page.getByTestId('interest-chip-2027-01')).toHaveCount(0);
   const january2027SvgX = 54 + (3.25 / 36) * (svgWidth - 54 - 24);
   await page.mouse.click(svgBox.x + (january2027SvgX / svgWidth) * svgBox.width, box.y + 100);
@@ -175,6 +161,19 @@ test('AC-07 annual interest credit is visible as a January step in line and area
   await expect(january2027Interest).toContainText('Intérêts 2026');
   await expect(january2027Interest).toContainText('+12 000 €');
   await expect(page.getByTestId('chart-capital-value')).toHaveText('112 000 €');
+  await expect(page.getByTestId('kpi-projected-gains')).toContainText('+12 000 € intérêts');
+
+  const monthNames = [
+    'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet',
+    'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre',
+  ];
+  for (const [offset, monthName] of monthNames.entries()) {
+    const monthIndex = offset + 4;
+    const monthSvgX = 54 + ((monthIndex + 0.25) / 36) * (svgWidth - 54 - 24);
+    await page.mouse.click(svgBox.x + (monthSvgX / svgWidth) * svgBox.width, box.y + 100);
+    await expect(page.getByTestId('chart-date-headline')).toHaveText(`📅 ${monthName} 2027`);
+    await expect(page.getByTestId('kpi-projected-gains')).toContainText('+12 000 € intérêts');
+  }
 
   // Allow for the wrapper's centered SVG hit-test offset while staying within
   // January's selection bucket.
@@ -183,6 +182,7 @@ test('AC-07 annual interest credit is visible as a January step in line and area
   await page.mouse.click(january2028X, box.y + 100);
   await expect(page.getByTestId('chart-date-headline')).toHaveText('📅 Janvier 2028');
   await expect(page.getByTestId('chart-capital-value')).toHaveText('125 440 €');
+  await expect(page.getByTestId('kpi-projected-gains')).toContainText('+25 440 € intérêts');
   const january2028Interest = page.getByTestId('interest-chip-2028-01');
   await expect(january2028Interest).toContainText('Intérêts 2027');
   await expect(january2028Interest).toContainText('+13 440 €');
