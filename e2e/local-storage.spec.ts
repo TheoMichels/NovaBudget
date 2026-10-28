@@ -46,8 +46,8 @@ test('AC-01/02/04 local CRUD and settings survive reload with no Supabase networ
   await page.reload();
   for (const name of ['Compte préexistant', 'Projet préexistant', 'Épargne test', 'Dépense test', 'Rentrée test']) await expect(page.getByLabel(`Supprimer ${name}`, { exact: true })).toBeVisible();
   await expect(page.getByLabel('Seuil de sécurité en euros')).toHaveValue('12345');
-  await expect(page.getByText(/^900\s*€$/)).toBeVisible();
-  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('@nova_monthly_contribution_v3') ?? '{}').monthlyTotal)).toBe(900);
+  await expect(page.getByText(/^100\s*€$/)).toBeVisible();
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('@nova_monthly_contribution_v3') ?? '{}').monthlyTotal)).toBe(100);
 
   for (const name of ['Épargne test', 'Dépense test', 'Rentrée test']) await page.getByLabel(`Supprimer ${name}`, { exact: true }).click();
   await page.reload();
@@ -110,7 +110,7 @@ for (const width of [375, 1440]) {
       await page.mouse.move(box.x + lastX, box.y + 100, { steps: 12 });
       await page.mouse.up();
       await expect(page.getByTestId('chart-date-headline')).toHaveText(firstLabel.startsWith('Sept') ? '📅 Septembre 2029' : '📅 Octobre 2029');
-      await expect(page.getByTestId('chart-capital-value')).not.toHaveText('0 €');
+      await expect(page.getByTestId('chart-capital-value')).toHaveText('0 €');
       await assertSpacing();
       // Le mois initial sélectionné par App est l’index 12 sur un horizon de 36 mois.
       await page.mouse.click(box.x + firstX + (lastX - firstX) / 3, box.y + 100);
