@@ -161,6 +161,19 @@ test('AC-07 annual interest is credited in January and follows the shared smooth
   await expect(january2027Interest).toContainText('Intérêts 2026');
   await expect(january2027Interest).toContainText('+12 000 €');
   await expect(page.getByTestId('chart-capital-value')).toHaveText('112 000 €');
+  await expect(page.getByTestId('kpi-projected-gains')).toContainText('+12 000 € intérêts');
+
+  const monthNames = [
+    'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet',
+    'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre',
+  ];
+  for (const [offset, monthName] of monthNames.entries()) {
+    const monthIndex = offset + 4;
+    const monthSvgX = 54 + ((monthIndex + 0.25) / 36) * (svgWidth - 54 - 24);
+    await page.mouse.click(svgBox.x + (monthSvgX / svgWidth) * svgBox.width, box.y + 100);
+    await expect(page.getByTestId('chart-date-headline')).toHaveText(`📅 ${monthName} 2027`);
+    await expect(page.getByTestId('kpi-projected-gains')).toContainText('+12 000 € intérêts');
+  }
 
   // Allow for the wrapper's centered SVG hit-test offset while staying within
   // January's selection bucket.
@@ -169,6 +182,7 @@ test('AC-07 annual interest is credited in January and follows the shared smooth
   await page.mouse.click(january2028X, box.y + 100);
   await expect(page.getByTestId('chart-date-headline')).toHaveText('📅 Janvier 2028');
   await expect(page.getByTestId('chart-capital-value')).toHaveText('125 440 €');
+  await expect(page.getByTestId('kpi-projected-gains')).toContainText('+25 440 € intérêts');
   const january2028Interest = page.getByTestId('interest-chip-2028-01');
   await expect(january2028Interest).toContainText('Intérêts 2027');
   await expect(january2028Interest).toContainText('+13 440 €');
