@@ -304,9 +304,8 @@ export function UnifiedEvolutionChart({
     ),
   );
 
-  // Keep the monthly movement visible, then show the previous year's interest
-  // as a vertical credit at January. accumulatedInterest is cumulative, and
-  // the engine credits the prior point's accrued amount in January.
+  // Render every monthly capital change with the same smooth curve. Annual
+  // interest credits are still identified separately in the event timeline.
   let pathD = "";
   let areaD = `M ${getX(0)} ${padding.top + innerHeight} `;
 
@@ -319,18 +318,9 @@ export function UnifiedEvolutionChart({
     } else {
       const prevX = getX(i - 1);
       const prevY = getY(monthlyData[i - 1].capital);
-      const point = monthlyData[i];
-      const credit = annualInterestCredits[i];
-      if (credit > 0) {
-        const beforeCreditY = getY(point.capital - credit);
-        const cpX = prevX + (x - prevX) / 2;
-        pathD += `C ${cpX} ${prevY}, ${cpX} ${beforeCreditY}, ${x} ${beforeCreditY} L ${x} ${y} `;
-        areaD += `C ${cpX} ${prevY}, ${cpX} ${beforeCreditY}, ${x} ${beforeCreditY} L ${x} ${y} `;
-      } else {
-        const cpX = prevX + (x - prevX) / 2;
-        pathD += `C ${cpX} ${prevY}, ${cpX} ${y}, ${x} ${y} `;
-        areaD += `C ${cpX} ${prevY}, ${cpX} ${y}, ${x} ${y} `;
-      }
+      const cpX = prevX + (x - prevX) / 2;
+      pathD += `C ${cpX} ${prevY}, ${cpX} ${y}, ${x} ${y} `;
+      areaD += `C ${cpX} ${prevY}, ${cpX} ${y}, ${x} ${y} `;
     }
   });
 
