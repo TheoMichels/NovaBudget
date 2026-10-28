@@ -277,7 +277,9 @@ export function UnifiedEvolutionChart({
     ),
   );
 
-  // Build SVG smooth path
+  // Keep the monthly movement visible, then show the previous year's interest
+  // as a vertical credit at January. accumulatedInterest is cumulative, and
+  // the engine credits the prior point's accrued amount in January.
   let pathD = "";
   let areaD = `M ${getX(0)} ${padding.top + innerHeight} `;
 
@@ -290,9 +292,32 @@ export function UnifiedEvolutionChart({
     } else {
       const prevX = getX(i - 1);
       const prevY = getY(monthlyData[i - 1].capital);
-      const cpX = prevX + (x - prevX) / 2;
-      pathD += `C ${cpX} ${prevY}, ${cpX} ${y}, ${x} ${y} `;
-      areaD += `C ${cpX} ${prevY}, ${cpX} ${y}, ${x} ${y} `;
+      const point = monthlyData[i];
+      let credit = 0;
+      if (Number(point.dateStr.slice(5, 7)) === 1) {
+        const previousJanuary = monthlyData.find((candidate) =>
+          candidate.dateStr === `${Number(point.dateStr.slice(0, 4)) - 1}-01`
+        );
+        if (previousJanuary) {
+          const januaryInterest = previousJanuary.interestEarnedThisMonth ||
+            (previousJanuary.monthIndex === 0 ? previousJanuary.accumulatedInterest : 0);
+          credit = monthlyData[i - 1].accumulatedInterest -
+            previousJanuary.accumulatedInterest + januaryInterest;
+        } else {
+          credit = monthlyData[i - 1].accumulatedInterest;
+        }
+        credit = Math.max(0, credit);
+      }
+      if (credit > 0) {
+        const beforeCreditY = getY(point.capital - credit);
+        const cpX = prevX + (x - prevX) / 2;
+        pathD += `C ${cpX} ${prevY}, ${cpX} ${beforeCreditY}, ${x} ${beforeCreditY} L ${x} ${y} `;
+        areaD += `C ${cpX} ${prevY}, ${cpX} ${beforeCreditY}, ${x} ${beforeCreditY} L ${x} ${y} `;
+      } else {
+        const cpX = prevX + (x - prevX) / 2;
+        pathD += `C ${cpX} ${prevY}, ${cpX} ${y}, ${x} ${y} `;
+        areaD += `C ${cpX} ${prevY}, ${cpX} ${y}, ${x} ${y} `;
+      }
     }
   });
 
@@ -462,10 +487,11 @@ export function UnifiedEvolutionChart({
           )}
 
           {/* Area Fill */}
-          <Path d={areaD} fill="url(#emeraldGradient)" />
+          <Path testID="projection-chart-area" d={areaD} fill="url(#emeraldGradient)" />
 
           {/* Main Curve Line in #0D9488 */}
           <Path
+            testID="projection-chart-line"
             d={pathD}
             fill="none"
             stroke="#0D9488"

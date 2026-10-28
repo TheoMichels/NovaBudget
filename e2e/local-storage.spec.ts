@@ -121,3 +121,54 @@ for (const width of [375, 1440]) {
     });
   }
 }
+
+test('AC-07 annual interest credit is visible as a January step in line and area', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.clock.setFixedTime(new Date('2026-10-15T12:00:00Z'));
+  await page.addInitScript(() => {
+    localStorage.setItem('@nova_savings_v3', JSON.stringify([{
+      id: 'interest-step-account', name: 'Compte rémunéré', category: 'securite',
+      amount: 100000, rate: 12, updatedAt: '2026-10-15T12:00:00.000Z',
+    }]));
+    localStorage.setItem('@nova_monthly_contribution_v3', JSON.stringify({ monthlyTotal: 0 }));
+  });
+  await page.goto('/');
+  await page.getByTestId('projection-chart').scrollIntoViewIfNeeded();
+
+  const verticalStepHeights = async (testId: string) => {
+    const d = await page.getByTestId(testId).getAttribute('d');
+    expect(d).toBeTruthy();
+    const commands = d?.matchAll(/C\s*(-?[\d.]+)\s+(-?[\d.]+),\s*(-?[\d.]+)\s+(-?[\d.]+),\s*(-?[\d.]+)\s+(-?[\d.]+)\s+L\s*(-?[\d.]+)\s+(-?[\d.]+)/g);
+    return Array.from(commands ?? [])
+      .filter(command => Number(command[5]) === Number(command[7]) && Number(command[6]) !== Number(command[8]))
+      .map(command => Math.abs(Number(command[6]) - Number(command[8])));
+  };
+
+  await expect.poll(async () => (await verticalStepHeights('projection-chart-line')).length).toBeGreaterThanOrEqual(3);
+  const lineHeights = await verticalStepHeights('projection-chart-line');
+  const areaHeights = await verticalStepHeights('projection-chart-area');
+  expect(lineHeights).toHaveLength(3);
+  expect(areaHeights.length).toBeGreaterThanOrEqual(3);
+  expect(lineHeights[1]).toBeGreaterThan(lineHeights[0] * 1.05);
+  expect(lineHeights[1]).toBeLessThan(lineHeights[0] * 1.6);
+  for (let i = 0; i < lineHeights.length; i++) {
+    expect(areaHeights[i]).toBeCloseTo(lineHeights[i], 5);
+  }
+
+  const chart = page.getByTestId('projection-chart');
+  const box = await chart.boundingBox();
+  expect(box).not.toBeNull();
+  if (!box) throw new Error('Graphique SVG introuvable');
+  const svg = chart.locator('svg');
+  const svgBox = await svg.boundingBox();
+  const svgWidth = Number(await svg.getAttribute('width'));
+  expect(svgBox).not.toBeNull();
+  if (!svgBox || !svgWidth) throw new Error('Dimensions SVG introuvables');
+  // Allow for the wrapper's centered SVG hit-test offset while staying within
+  // January's selection bucket.
+  const january2028SvgX = 54 + (15.75 / 36) * (svgWidth - 54 - 24);
+  const january2028X = svgBox.x + (january2028SvgX / svgWidth) * svgBox.width;
+  await page.mouse.click(january2028X, box.y + 100);
+  await expect(page.getByTestId('chart-date-headline')).toHaveText('📅 Janvier 2028');
+  await expect(page.getByTestId('chart-capital-value')).toHaveText('125 440 €');
+});
