@@ -37,7 +37,7 @@ interface DomPointerTarget {
 
 export interface CumulativeProjectionEvent {
   id: string;
-  type: "project" | "inflow";
+  type: "project" | "inflow" | "interest";
   title: string;
   amount: number;
   dateStr: string;
@@ -68,6 +68,21 @@ export function UnifiedEvolutionChart({
   const safeSelectedIndex = Math.min(Math.max(0, selectedIndex), maxIndex);
   const selectedPoint = monthlyData[safeSelectedIndex] ?? null;
   const initialPoint = monthlyData[0] ?? null;
+
+  // Crédit annuel calculé une fois et partagé entre le tracé et la timeline.
+  const annualInterestCredits = useMemo(() => monthlyData.map((point, index) => {
+    if (index === 0 || Number(point.dateStr.slice(5, 7)) !== 1) return 0;
+    const previousJanuary = monthlyData.find((candidate) =>
+      candidate.dateStr === `${Number(point.dateStr.slice(0, 4)) - 1}-01`
+    );
+    let credit = previousJanuary
+      ? monthlyData[index - 1].accumulatedInterest - previousJanuary.accumulatedInterest +
+        (previousJanuary.interestEarnedThisMonth ||
+          (previousJanuary.monthIndex === 0 ? previousJanuary.accumulatedInterest : 0))
+      : monthlyData[index - 1].accumulatedInterest;
+    credit = Math.max(0, credit);
+    return credit;
+  }), [monthlyData]);
 
   const handleContainerLayout = (e: LayoutChangeEvent) => {
     const w = e.nativeEvent.layout.width;
@@ -218,9 +233,21 @@ export function UnifiedEvolutionChart({
           });
         }
       }
+      const interestCredit = annualInterestCredits[i];
+      if (interestCredit > 0) {
+        list.push({
+          id: `annual-interest-${month.dateStr}`,
+          type: "interest",
+          title: `Intérêts ${Number(month.dateStr.slice(0, 4)) - 1}`,
+          amount: interestCredit,
+          dateStr: month.dateStr,
+          monthLabel: month.label,
+          monthIndex: month.monthIndex,
+        });
+      }
     }
     return list;
-  }, [monthlyData, safeSelectedIndex]);
+  }, [annualInterestCredits, monthlyData, safeSelectedIndex]);
 
   // Date formatting for the active point
   const formattedMonthYear = selectedPoint?.dateStr
@@ -277,7 +304,9 @@ export function UnifiedEvolutionChart({
     ),
   );
 
-  // Build SVG smooth path
+  // Keep the monthly movement visible, then show the previous year's interest
+  // as a vertical credit at January. accumulatedInterest is cumulative, and
+  // the engine credits the prior point's accrued amount in January.
   let pathD = "";
   let areaD = `M ${getX(0)} ${padding.top + innerHeight} `;
 
@@ -290,9 +319,18 @@ export function UnifiedEvolutionChart({
     } else {
       const prevX = getX(i - 1);
       const prevY = getY(monthlyData[i - 1].capital);
-      const cpX = prevX + (x - prevX) / 2;
-      pathD += `C ${cpX} ${prevY}, ${cpX} ${y}, ${x} ${y} `;
-      areaD += `C ${cpX} ${prevY}, ${cpX} ${y}, ${x} ${y} `;
+      const point = monthlyData[i];
+      const credit = annualInterestCredits[i];
+      if (credit > 0) {
+        const beforeCreditY = getY(point.capital - credit);
+        const cpX = prevX + (x - prevX) / 2;
+        pathD += `C ${cpX} ${prevY}, ${cpX} ${beforeCreditY}, ${x} ${beforeCreditY} L ${x} ${y} `;
+        areaD += `C ${cpX} ${prevY}, ${cpX} ${beforeCreditY}, ${x} ${beforeCreditY} L ${x} ${y} `;
+      } else {
+        const cpX = prevX + (x - prevX) / 2;
+        pathD += `C ${cpX} ${prevY}, ${cpX} ${y}, ${x} ${y} `;
+        areaD += `C ${cpX} ${prevY}, ${cpX} ${y}, ${x} ${y} `;
+      }
     }
   });
 
@@ -462,10 +500,11 @@ export function UnifiedEvolutionChart({
           )}
 
           {/* Area Fill */}
-          <Path d={areaD} fill="url(#emeraldGradient)" />
+          <Path testID="projection-chart-area" d={areaD} fill="url(#emeraldGradient)" />
 
           {/* Main Curve Line in #0D9488 */}
           <Path
+            testID="projection-chart-line"
             d={pathD}
             fill="none"
             stroke="#0D9488"
@@ -592,6 +631,7 @@ export function UnifiedEvolutionChart({
                 return (
                   <View
                     key={`${ev.id}-${ev.monthIndex}-${idx}`}
+                    testID={ev.type === "interest" ? `interest-chip-${ev.dateStr}` : undefined}
                     style={[
                       styles.eventChip,
                       isProject
@@ -622,7 +662,7 @@ export function UnifiedEvolutionChart({
 
                     {/* Type Icon */}
                     <Text style={styles.eventChipIcon}>
-                      {isProject ? "🚗" : "⚡"}
+                      {isProject ? "🚗" : ev.type === "interest" ? "💰" : "⚡"}
                     </Text>
 
                     {/* Amount */}

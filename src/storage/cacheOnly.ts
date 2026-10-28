@@ -13,7 +13,7 @@ export interface CollectionItems {
 }
 export type CollectionName = keyof CollectionItems;
 export const DEFAULT_SAFETY_CUSHION = 20000;
-export const DEFAULT_MONTHLY_CONTRIBUTION = { monthlyTotal: 800 };
+export const DEFAULT_MONTHLY_CONTRIBUTION = { monthlyTotal: 0 };
 
 // Sérialise uniquement les écritures locales : une requête réseau ne bloque jamais le cache.
 function cachedValue<T>(key: string, schema: z.ZodType<T, z.ZodTypeDef, unknown>, fallback: T) {
