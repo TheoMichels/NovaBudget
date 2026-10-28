@@ -164,6 +164,18 @@ test('AC-07 annual interest credit is visible as a January step in line and area
   const svgWidth = Number(await svg.getAttribute('width'));
   expect(svgBox).not.toBeNull();
   if (!svgBox || !svgWidth) throw new Error('Dimensions SVG introuvables');
+  const december2026SvgX = 54 + (2.25 / 36) * (svgWidth - 54 - 24);
+  await page.mouse.click(svgBox.x + (december2026SvgX / svgWidth) * svgBox.width, box.y + 100);
+  await expect(page.getByTestId('interest-chip-2027-01')).toHaveCount(0);
+  const january2027SvgX = 54 + (3.25 / 36) * (svgWidth - 54 - 24);
+  await page.mouse.click(svgBox.x + (january2027SvgX / svgWidth) * svgBox.width, box.y + 100);
+  await expect(page.getByTestId('chart-date-headline')).toHaveText('📅 Janvier 2027');
+  const january2027Interest = page.getByTestId('interest-chip-2027-01');
+  await expect(january2027Interest).toContainText('Janv. 27');
+  await expect(january2027Interest).toContainText('Intérêts 2026');
+  await expect(january2027Interest).toContainText('+12 000 €');
+  await expect(page.getByTestId('chart-capital-value')).toHaveText('112 000 €');
+
   // Allow for the wrapper's centered SVG hit-test offset while staying within
   // January's selection bucket.
   const january2028SvgX = 54 + (15.75 / 36) * (svgWidth - 54 - 24);
@@ -171,4 +183,7 @@ test('AC-07 annual interest credit is visible as a January step in line and area
   await page.mouse.click(january2028X, box.y + 100);
   await expect(page.getByTestId('chart-date-headline')).toHaveText('📅 Janvier 2028');
   await expect(page.getByTestId('chart-capital-value')).toHaveText('125 440 €');
+  const january2028Interest = page.getByTestId('interest-chip-2028-01');
+  await expect(january2028Interest).toContainText('Intérêts 2027');
+  await expect(january2028Interest).toContainText('+13 440 €');
 });

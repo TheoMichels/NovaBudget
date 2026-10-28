@@ -37,7 +37,7 @@ interface DomPointerTarget {
 
 export interface CumulativeProjectionEvent {
   id: string;
-  type: "project" | "inflow";
+  type: "project" | "inflow" | "interest";
   title: string;
   amount: number;
   dateStr: string;
@@ -68,6 +68,21 @@ export function UnifiedEvolutionChart({
   const safeSelectedIndex = Math.min(Math.max(0, selectedIndex), maxIndex);
   const selectedPoint = monthlyData[safeSelectedIndex] ?? null;
   const initialPoint = monthlyData[0] ?? null;
+
+  // Crédit annuel calculé une fois et partagé entre le tracé et la timeline.
+  const annualInterestCredits = useMemo(() => monthlyData.map((point, index) => {
+    if (index === 0 || Number(point.dateStr.slice(5, 7)) !== 1) return 0;
+    const previousJanuary = monthlyData.find((candidate) =>
+      candidate.dateStr === `${Number(point.dateStr.slice(0, 4)) - 1}-01`
+    );
+    let credit = previousJanuary
+      ? monthlyData[index - 1].accumulatedInterest - previousJanuary.accumulatedInterest +
+        (previousJanuary.interestEarnedThisMonth ||
+          (previousJanuary.monthIndex === 0 ? previousJanuary.accumulatedInterest : 0))
+      : monthlyData[index - 1].accumulatedInterest;
+    credit = Math.max(0, credit);
+    return credit;
+  }), [monthlyData]);
 
   const handleContainerLayout = (e: LayoutChangeEvent) => {
     const w = e.nativeEvent.layout.width;
@@ -218,9 +233,21 @@ export function UnifiedEvolutionChart({
           });
         }
       }
+      const interestCredit = annualInterestCredits[i];
+      if (interestCredit > 0) {
+        list.push({
+          id: `annual-interest-${month.dateStr}`,
+          type: "interest",
+          title: `Intérêts ${Number(month.dateStr.slice(0, 4)) - 1}`,
+          amount: interestCredit,
+          dateStr: month.dateStr,
+          monthLabel: month.label,
+          monthIndex: month.monthIndex,
+        });
+      }
     }
     return list;
-  }, [monthlyData, safeSelectedIndex]);
+  }, [annualInterestCredits, monthlyData, safeSelectedIndex]);
 
   // Date formatting for the active point
   const formattedMonthYear = selectedPoint?.dateStr
@@ -293,21 +320,7 @@ export function UnifiedEvolutionChart({
       const prevX = getX(i - 1);
       const prevY = getY(monthlyData[i - 1].capital);
       const point = monthlyData[i];
-      let credit = 0;
-      if (Number(point.dateStr.slice(5, 7)) === 1) {
-        const previousJanuary = monthlyData.find((candidate) =>
-          candidate.dateStr === `${Number(point.dateStr.slice(0, 4)) - 1}-01`
-        );
-        if (previousJanuary) {
-          const januaryInterest = previousJanuary.interestEarnedThisMonth ||
-            (previousJanuary.monthIndex === 0 ? previousJanuary.accumulatedInterest : 0);
-          credit = monthlyData[i - 1].accumulatedInterest -
-            previousJanuary.accumulatedInterest + januaryInterest;
-        } else {
-          credit = monthlyData[i - 1].accumulatedInterest;
-        }
-        credit = Math.max(0, credit);
-      }
+      const credit = annualInterestCredits[i];
       if (credit > 0) {
         const beforeCreditY = getY(point.capital - credit);
         const cpX = prevX + (x - prevX) / 2;
@@ -618,6 +631,7 @@ export function UnifiedEvolutionChart({
                 return (
                   <View
                     key={`${ev.id}-${ev.monthIndex}-${idx}`}
+                    testID={ev.type === "interest" ? `interest-chip-${ev.dateStr}` : undefined}
                     style={[
                       styles.eventChip,
                       isProject
@@ -648,7 +662,7 @@ export function UnifiedEvolutionChart({
 
                     {/* Type Icon */}
                     <Text style={styles.eventChipIcon}>
-                      {isProject ? "🚗" : "⚡"}
+                      {isProject ? "🚗" : ev.type === "interest" ? "💰" : "⚡"}
                     </Text>
 
                     {/* Amount */}
