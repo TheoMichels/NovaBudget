@@ -24,7 +24,7 @@ import {
 } from "../types/projection";
 
 const DEFAULT_MONTHLY_CONFIG: MonthlyContributionConfig = {
-  monthlyTotal: 800,
+  monthlyTotal: 0,
 };
 
 export function useProjections() {
